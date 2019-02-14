@@ -154,6 +154,7 @@ def getChromeExtensions(path,output_file):
            if field == "name":
              if manifest_json.get("name").startswith('__') == False:
                extensions.update({"Extension Directory Name":directory})
+               extensions.update({"Extension Update Url":manifest_json.get("update_url").strip('u\'')})
                extensions.update({"Extension Name":manifest_json.get("name").strip('u\'')})
                extensions.update({"module":"Chrome Extensions"})
                extensions.update({"Hostname":hostname})
