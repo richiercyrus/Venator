@@ -25,7 +25,6 @@ def getSystemInfo(output_file):
     system_data.update({'hostname':uname[1]})
     system_data.update({'kernel':uname[2]})
     system_data.update({'kernel_release':uname[3].split(';')[1].split(':')[1]})
-    system_data.update({"Hostname":hostname})
     system_data.update({"module":"System Info"})
     json.dump(system_data,output_file)
     outfile.write("\n")
@@ -465,8 +464,3 @@ if __name__ == '__main__':
       output_list.append(getLaunchAgents('/System/Library/LaunchAgents',outfile))
       output_list.append(getLaunchDaemons('/System/Library/LaunchDaemons',outfile))
       output_list.append(getKext(sipStatus,'System/Library/Extensions',outfile))
-
-  #***** Things to add
-    #protocol handlers
-    #getTmpFiles()
-    #getDownloads()
