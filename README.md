@@ -8,6 +8,7 @@ Launch Daemons:label, program, program arguments, run at load status, hash, path
 Users: users on the system
 Safari Extensions: extension name, extension signature info, developer identifier, extensions path
 Chrome Extensions: directory name, extension update url, extension name
+Firefox Extensions: Extension ID, Extension Update URL, Extension Options URL, Extension Install Date, Extension Last Updated, Extension Source URI, Extension Name, Extension Description, Extension Creator, Extension Homepage URL
 Install History: install date, display name, package identifier
 Cron Jobs: For each user show every listed cron job
 Emond rules: path, contents of the plist for each listed in the directory
