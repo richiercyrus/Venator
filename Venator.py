@@ -160,6 +160,35 @@ def getChromeExtensions(path,output_file):
                json.dump(extensions,output_file)
                outfile.write("\n")
 
+def getFirefoxExtensions(path,output_file):
+  with open(path+"profiles.ini",'r') as profile_data:
+    profile_dump = profile_data.read()
+  
+  extensions_path = profile_dump[profile_dump.find("Path="):profile_dump.find(".default")+8]
+      
+  extensions_path = extensions_path.split("=")[1]
+
+  with open(path+extensions_path+"/extensions.json", 'r') as extensions:
+    extensions_dump = extensions.read()
+  extensions_json = json.loads(extensions_dump)
+
+  for field in extensions_json.get("addons"):
+    firefox_extensions = {}
+    firefox_extensions.update({"Extension ID": field.get("id")})
+    firefox_extensions.update({"Extension Update URL": field.get("updateURL")})
+    firefox_extensions.update({"Extension Options URL": field.get("optionsURL")})
+    firefox_extensions.update({"Extension Install Date": field.get("installDate")})
+    firefox_extensions.update({"Extension Last Updated": field.get("updateDate")})
+    firefox_extensions.update({"Extension Source URI": field.get("sourceURI")})
+    firefox_extensions.update({"Extension Name": field.get("defaultLocale").get("name")})
+    firefox_extensions.update({"Extension Description": field.get("defaultLocale").get("description")})    
+    firefox_extensions.update({"Extension Creator": field.get("defaultLocale").get("creator")})
+    firefox_extensions.update({"Extension Homepage URL": field.get("defaultLocale").get("homepageURL")})
+    firefox_extensions.update({"module":"Firefox Extensions"})
+    firefox_extensions.update({"Hostname":hostname})        
+    json.dump(firefox_extensions,output_file)
+    outfile.write("\n")
+
 def getTmpFiles():
   temporaryFiles = {}
   tempFiles = {}
@@ -441,6 +470,7 @@ if __name__ == '__main__':
     for user in lst_of_users:
       userLaunchAgent = '/Users/'+user+'/Library/LaunchAgents'
       chromeEx = '/Users/'+user+'/Library/Application Support/Google/Chrome/Default/Extensions/'
+      firefoxEx = '/Users/'+user+'/Library/Application Support/Firefox/'
       safariEx = '/Users/'+user+'/Library/Safari/Extensions'
       loginItemDir = '/Users/'+user+'/Library/Application Support/com.apple.backgroundtaskmanagementagent/backgrounditems.btm'
       apps_dir = '/Users/'+user+'/Applications'
@@ -449,6 +479,8 @@ if __name__ == '__main__':
         getLaunchAgents(userLaunchAgent,outfile)
       if os.path.exists(chromeEx):
         getChromeExtensions(chromeEx,outfile)
+      if os.path.exists(firefoxEx):
+        getFirefoxExtensions(firefoxEx,outfile)
       if os.path.exists(safariEx):
         getSafariExtensions(safariEx,outfile)
       if os.path.exists(loginItemDir):
