@@ -69,9 +69,18 @@ def getLaunchAgents(path,output_file):
           #del plist_text[0]
           #str1 = '\n'.join(plist_text)
           plist = plistlib.readPlistFromString(plist_string)
+      if plist.get("ProgramArguments"):
+        progExecutable = plist.get("ProgramArguments")[0]
+        progExecutableHash = getHash(progExecutable)
+      else:
+        progExecutable = "None"
+      #print progExecutable
       parsedAgent.update({'Label': str(plist.get("Label"))})
       parsedAgent.update({'Program': str(plist.get("Program"))})
-      parsedAgent.update({'Program Arguments': str(plist.get("ProgramArguments"))})
+      parsedAgent.update({'Program Arguments':(str(plist.get("ProgramArguments"))).strip("[").strip("]")})
+      #added the prgamExecutable from the programArguments field
+      parsedAgent.update({"Executable":progExecutable})
+      parsedAgent.update({"Executable Hash":progExecutableHash})
       parsedAgent.update({'Run At Load': str(plist.get("RunAtLoad"))})
       parsedAgent.update({'hash': getHash(plist_file)})
       parsedAgent.update({'Path': plist_file})
@@ -95,9 +104,16 @@ def getLaunchDaemons(path,output_file):
         plist = Foundation.NSDictionary.dictionaryWithContentsOfFile_(plist_file)
       elif plist_type == 'XML 1.0 document text, ASCII text':
         plist = plistlib.readPlist(plist_file)
+      if plist.get("ProgramArguments"):
+        progExecutable = plist.get("ProgramArguments")[0]
+        progExecutableHash = getHash(progExecutable)
+      else:
+        progExecutable = "None"
       parsedDaemon.update({'Label': str(plist.get("Label"))})
       parsedDaemon.update({'Program': str(plist.get("Program"))})
       parsedDaemon.update({'Program Arguments': str(plist.get("ProgramArguments"))})
+      parsedDaemon.update({"Executable":progExecutable})
+      parsedDaemon.update({"Executable Hash":progExecutableHash})
       parsedDaemon.update({'hash': getHash(plist_file)})
       parsedDaemon.update({'Path': plist_file})
       parsedDaemon.update({"module":"Launch Daemons"})
@@ -380,12 +396,20 @@ def getLoginItems(path,output_file):
         loginApps.append(properties.get("NSURLBookmarkAllPropertiesKey").get("_NSURLPathKey"))
   loginApps = set(loginApps)
   loginApps = list(loginApps)
+  '''for app in loginApps:
+    loginItems = {}
+    loginItems.update({"Login Items":app})
+    loginItems.update({"Hash":getHash(app)})
+    loginItems.update({"Hostname":hostname})
+    loginItems.update({"module":"Login Items"})
+    json.dump(loginItems,output_file)
+    outfile.write("\n")'''
   loginItems.update({"Login Items":loginApps})
   loginItems.update({"module":"Login Items"})
   loginItems.update({"Hostname":hostname})
   json.dump(loginItems,output_file)
   outfile.write("\n")
-  #return loginItems
+  return loginItems
 
 def getApps(path,output_file):
   apps = {}
