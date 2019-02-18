@@ -17,10 +17,8 @@ import ctypes
 import ctypes.util
 import objc
 
-
 #get the hostname of the system the script is running on
 hostname = socket.gethostname()
-
 
 def getSystemInfo(output_file):
     system_data = {}
