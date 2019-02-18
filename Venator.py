@@ -40,7 +40,8 @@ def getHash(file):
         hasher.update(buf)
     return(hasher.hexdigest())
 
-def checkSignature(file, bundle=None):
+#Code used from https://github.com/synack/knockknock/blob/master/knockknock.py - Patrick Wardle!
+def checkSignature(file, bundle=None): 
   SECURITY_FRAMEWORK = '/System/Library/Frameworks/Security.framework/Versions/Current/Security'
   kSecCSDefaultFlags = 0x0
   kSecCSDoNotValidateResources = 0x4
