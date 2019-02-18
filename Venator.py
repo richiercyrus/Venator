@@ -13,6 +13,9 @@ import socket
 import Foundation
 import Quartz
 import argparse
+import ctypes
+import ctypes.util
+import objc
 
 
 #get the hostname of the system the script is running on
@@ -36,6 +39,82 @@ def getHash(file):
         buf = afile.read()
         hasher.update(buf)
     return(hasher.hexdigest())
+
+def checkSignature(file, bundle=None):
+  SECURITY_FRAMEWORK = '/System/Library/Frameworks/Security.framework/Versions/Current/Security'
+  kSecCSDefaultFlags = 0x0
+  kSecCSDoNotValidateResources = 0x4
+  kSecCSCheckAllArchitectures = 0x1
+  kSecCSCheckNestedCode = 0x8
+  kSecCSStrictValidate = 0x16
+  kSecCSStrictValidate_kSecCSCheckAllArchitectures = 0x17
+  kSecCSStrictValidate_kSecCSCheckAllArchitectures_kSecCSCheckNestedCode = 0x1f
+  errSecSuccess = 0x0
+  SecCSSignatureOK = errSecSuccess
+  errSecCSUnsigned = -67062
+  kPOSIXErrorEACCES = 100013
+  kSecCSSigningInformation = 0x2
+  kSecCodeInfoCertificates = 'certificates'
+
+	#return dictionary
+  signingInfo = {}
+  sigCheckFlags = kSecCSStrictValidate_kSecCSCheckAllArchitectures_kSecCSCheckNestedCode 
+  securityFramework = ctypes.cdll.LoadLibrary(SECURITY_FRAMEWORK)
+  objcRuntime = ctypes.cdll.LoadLibrary(ctypes.util.find_library('objc'))
+  objcRuntime.objc_getClass.restype = ctypes.c_void_p
+  objcRuntime.sel_registerName.restype = ctypes.c_void_p
+  status = not errSecSuccess
+  signedStatus = None
+  isApple = False
+  authorities = []
+  
+  #print Foundation.NSString.stringWithString_(file)
+	#file = Foundation.NSString.stringWithUTF8String_(file)
+  file = Foundation.NSString.stringWithString_(file)
+  file = file.stringByAddingPercentEscapesUsingEncoding_(Foundation.NSUTF8StringEncoding).encode('utf-8')
+  path = Foundation.NSURL.URLWithString_(Foundation.NSString.stringWithUTF8String_(file))
+  staticCode = ctypes.c_void_p(0)
+  result = securityFramework.SecStaticCodeCreateWithPath(ctypes.c_void_p(objc.pyobjc_id(path)), kSecCSDefaultFlags, ctypes.byref(staticCode))
+  signedStatus = securityFramework.SecStaticCodeCheckValidityWithErrors(staticCode, sigCheckFlags,None, None)
+  if errSecSuccess == signedStatus:
+		requirementReference = "anchor apple"
+		NSString = objcRuntime.objc_getClass('NSString')
+		objcRuntime.objc_msgSend.restype = ctypes.c_void_p
+		objcRuntime.objc_msgSend.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
+		requirementsString = objcRuntime.objc_msgSend(NSString, objcRuntime.sel_registerName('stringWithUTF8String:'), requirementReference)
+		requirement = ctypes.c_void_p(0)
+		if errSecSuccess == securityFramework.SecRequirementCreateWithString(ctypes.c_void_p(requirementsString), kSecCSDefaultFlags, ctypes.byref(requirement)):
+			if errSecSuccess == securityFramework.SecStaticCodeCheckValidity(staticCode, sigCheckFlags, requirement):
+				isApple = True
+
+		information = ctypes.c_void_p(0)
+		result = securityFramework.SecCodeCopySigningInformation(staticCode, kSecCSSigningInformation,ctypes.byref(information))
+		objcRuntime.objc_msgSend.restype = ctypes.c_void_p
+		objcRuntime.objc_msgSend.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
+		key = objcRuntime.objc_msgSend(NSString, objcRuntime.sel_registerName('stringWithUTF8String:'), kSecCodeInfoCertificates)
+		objcRuntime.objc_msgSend.restype = ctypes.c_void_p
+		objcRuntime.objc_msgSend.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
+		certChain = objcRuntime.objc_msgSend(information, objcRuntime.sel_registerName('objectForKey:'), key)
+		objcRuntime.objc_msgSend.restype = ctypes.c_uint
+		objcRuntime.objc_msgSend.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+		count = objcRuntime.objc_msgSend(certChain, objcRuntime.sel_registerName('count'))
+		certName = ctypes.c_char_p(0)
+		for index in range(count):
+			objcRuntime.objc_msgSend.restype = ctypes.c_void_p
+			objcRuntime.objc_msgSend.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint]
+			cert = objcRuntime.objc_msgSend(certChain, objcRuntime.sel_registerName('objectAtIndex:'), index)
+			result = securityFramework.SecCertificateCopyCommonName(ctypes.c_void_p(cert), ctypes.byref(certName))
+			if errSecSuccess != result:
+				continue
+			objcRuntime.objc_msgSend.restype = ctypes.c_char_p
+			objcRuntime.objc_msgSend.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+			authorities.append(objcRuntime.objc_msgSend(certName, objcRuntime.sel_registerName('UTF8String')))
+
+  status = errSecSuccess
+  signingInfo['status'] = signedStatus
+  signingInfo['Apple Binary'] = isApple
+  signingInfo['Authority'] = authorities
+  return (signingInfo)
 
 def datetime_handler(x):
     if isinstance(x, datetime.datetime):
@@ -72,8 +151,17 @@ def getLaunchAgents(path,output_file):
       if plist.get("ProgramArguments"):
         progExecutable = plist.get("ProgramArguments")[0]
         progExecutableHash = getHash(progExecutable)
+      elif plist.get("Program"):
+        progExecutable = plist.get("Program")
+        if progExecutable.startswith('REPLACE_HOME'):
+          findHomeStart = plist_file.find("/Library")
+          progExecutable = progExecutable.replace('REPLACE_HOME',plist_file[:findHomeStart])
+        #progExecutableHash = getHash(progExecutable)
+        progExecutableHash = "Something is wrong here"
       else:
         progExecutable = "None"
+        progExecutableHash = "None"
+    
       #print progExecutable
       parsedAgent.update({'Label': str(plist.get("Label"))})
       parsedAgent.update({'Program': str(plist.get("Program"))})
@@ -81,6 +169,7 @@ def getLaunchAgents(path,output_file):
       #added the prgamExecutable from the programArguments field
       parsedAgent.update({"Executable":progExecutable})
       parsedAgent.update({"Executable Hash":progExecutableHash})
+      parsedAgent.update({"Signing Info":checkSignature(progExecutable)})
       parsedAgent.update({'Run At Load': str(plist.get("RunAtLoad"))})
       parsedAgent.update({'hash': getHash(plist_file)})
       parsedAgent.update({'Path': plist_file})
@@ -104,11 +193,18 @@ def getLaunchDaemons(path,output_file):
         plist = Foundation.NSDictionary.dictionaryWithContentsOfFile_(plist_file)
       elif plist_type == 'XML 1.0 document text, ASCII text':
         plist = plistlib.readPlist(plist_file)
+      
       if plist.get("ProgramArguments"):
         progExecutable = plist.get("ProgramArguments")[0]
         progExecutableHash = getHash(progExecutable)
+      elif plist.get("Program"):
+        progExecutable = plist.get("Program")
+        progExecutableHash = getHash(progExecutable)
+        #progExecutableHash = "Something is wrong here"
       else:
         progExecutable = "None"
+        progExecutableHash = "Something is wrong here"
+
       parsedDaemon.update({'Label': str(plist.get("Label"))})
       parsedDaemon.update({'Program': str(plist.get("Program"))})
       parsedDaemon.update({'Program Arguments': str(plist.get("ProgramArguments"))})
@@ -451,8 +547,6 @@ def getBashHistory(output_file, users):
       userBashHistory.update({"Module":"Bash History"})
       json.dump(userBashHistory,output_file)
       outfile.write("\n")
-  
-
 
 
 if __name__ == '__main__':
