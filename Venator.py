@@ -507,14 +507,50 @@ def getLoginItems(path,output_file):
   return loginItems
 
 def getApps(path,output_file):
-  apps = {}
   app_lst = os.listdir(path)
-  apps.update({"Applications":app_lst})
-  apps.update({"module":"Applications"})
-  apps.update({"Hostname":hostname})
-  json.dump(apps,output_file)
-  outfile.write("\n")
-  return apps
+  for app in app_lst:
+    apps = {}
+    app = path+"/"+app
+    print app
+    appPlist = app+"/Contents/Info.plist"
+    
+    if os.path.exists(appPlist):
+      plist_type = subprocess.Popen(["file", appPlist], stdout=subprocess.PIPE).communicate()
+      plist_type = plist_type[0].split(":")[1].strip("\n").strip(" ")
+      plist = None
+      if plist_type == 'Apple binary property list':
+        plist = Foundation.NSDictionary.dictionaryWithContentsOfFile_(appPlist)
+      #elif (plist_type == 'XML 1.0 document text, ASCII text' or plist_type =='XML 1.0 document text, UTF-8 Unicode text'):
+      elif "XML 1.0 document text" in plist_type:
+        plist = plistlib.readPlist(appPlist)
+      
+      executable = plist.get("CFBundleExecutable")
+      executable_path = app+"/Contents/MacOS/"+executable
+    
+    if os.path.exists(executable_path):
+      app_sig = checkSignature(executable_path,None)
+      app_hash = getHash(executable_path)
+    apps.update({"Application":app})
+    apps.update({"module":"Applications"})
+    apps.update({"Hostname":hostname})
+    apps.update({"App Executable":executable_path})
+    apps.update({"App Signature":app_sig})
+    apps.update({"App Hash":app_hash})
+    json.dump(apps,output_file)
+    outfile.write("\n")
+  #for each application in app_lst
+  #look at the Info.plist file in Contents/Info.plist
+  #extract out the CFBundleExecutable and it's value save it to a variable
+  #Add the path to the binary to the dictionary
+  #Code sign check the binary and add to the dictionary
+  #hash the binary and add to the dictionary
+
+  #apps.update({"Applications":app_lst})
+  #apps.update({"module":"Applications"})
+  #apps.update({"Hostname":hostname})
+  #json.dump(apps,output_file)
+  #outfile.write("\n")
+  #return apps
 
 def getEventTaps(output_file):
   evInfo = Quartz.CGGetEventTapList(10,None,None)
