@@ -26,7 +26,7 @@ def getSystemInfo(output_file):
     system_data.update({'hostname':uname[1]})
     system_data.update({'kernel':uname[2]})
     system_data.update({'kernel_release':uname[3].split(';')[1].split(':')[1]})
-    system_data.update({"module":"System Info"})
+    system_data.update({"module":"system_info"})
     json.dump(system_data,output_file)
     outfile.write("\n")
 
@@ -111,7 +111,7 @@ def checkSignature(file, bundle=None):
 
   status = errSecSuccess
   signingInfo['status'] = signedStatus
-  signingInfo['Apple Binary'] = isApple
+  signingInfo['Apple binary'] = isApple
   signingInfo['Authority'] = authorities
   return (signingInfo)
 
@@ -162,18 +162,18 @@ def getLaunchAgents(path,output_file):
         progExecutableHash = "None"
     
       #print progExecutable
-      parsedAgent.update({'Label': str(plist.get("Label"))})
-      parsedAgent.update({'Program': str(plist.get("Program"))})
-      parsedAgent.update({'Program Arguments':(str(plist.get("ProgramArguments"))).strip("[").strip("]")})
+      parsedAgent.update({'label': str(plist.get("Label"))})
+      parsedAgent.update({'program': str(plist.get("Program"))})
+      parsedAgent.update({'program_arguments':(str(plist.get("ProgramArguments"))).strip("[").strip("]")})
       #added the prgamExecutable from the programArguments field
-      parsedAgent.update({"Executable":progExecutable})
-      parsedAgent.update({"Executable Hash":progExecutableHash})
-      parsedAgent.update({"Signing Info":checkSignature(progExecutable)})
-      parsedAgent.update({'Run At Load': str(plist.get("RunAtLoad"))})
+      parsedAgent.update({"executable":progExecutable})
+      parsedAgent.update({"executable_hash":progExecutableHash})
+      parsedAgent.update({"signing_info":checkSignature(progExecutable)})
+      parsedAgent.update({'runAtLoad': str(plist.get("RunAtLoad"))})
       parsedAgent.update({'hash': getHash(plist_file)})
-      parsedAgent.update({'Path': plist_file})
-      parsedAgent.update({"module":"Launch Agents"})
-      parsedAgent.update({"Hostname":hostname})
+      parsedAgent.update({'path': plist_file})
+      parsedAgent.update({"module":"launch_agents"})
+      parsedAgent.update({"hostname":hostname})
       json.dump(parsedAgent,output_file)
       outfile.write("\n")
 
@@ -204,15 +204,15 @@ def getLaunchDaemons(path,output_file):
         progExecutable = "None"
         progExecutableHash = "Something is wrong here"
 
-      parsedDaemon.update({'Label': str(plist.get("Label"))})
-      parsedDaemon.update({'Program': str(plist.get("Program"))})
-      parsedDaemon.update({'Program Arguments': str(plist.get("ProgramArguments"))})
-      parsedDaemon.update({"Executable":progExecutable})
-      parsedDaemon.update({"Executable Hash":progExecutableHash})
+      parsedDaemon.update({'label': str(plist.get("Label"))})
+      parsedDaemon.update({'program': str(plist.get("Program"))})
+      parsedDaemon.update({'program_arguments': str(plist.get("ProgramArguments"))})
+      parsedDaemon.update({"executable":progExecutable})
+      parsedDaemon.update({"executable_hash":progExecutableHash})
       parsedDaemon.update({'hash': getHash(plist_file)})
-      parsedDaemon.update({'Path': plist_file})
-      parsedDaemon.update({"module":"Launch Daemons"})
-      parsedDaemon.update({"Hostname":hostname})
+      parsedDaemon.update({'path': plist_file})
+      parsedDaemon.update({"module":"launch_daemons"})
+      parsedDaemon.update({"hostname":hostname})
       json.dump(parsedDaemon,output_file)
       outfile.write("\n") 
 
@@ -227,8 +227,8 @@ def getUsers(output_file):
         if user.startswith('_') == False:
              all_users.append(user)
     users_dict.update({'users': all_users})
-    users_dict.update({"module":"Users"})
-    users_dict.update({"Hostname":hostname})
+    users_dict.update({"module":"users"})
+    users_dict.update({"hostname":hostname})
     json.dump(users_dict,output_file)
     outfile.write("\n")
     return users_dict
@@ -241,11 +241,11 @@ def getSafariExtensions(path,output_file):
   for ext in plist.get("Installed Extensions"):
     safariExtensions = {}
     safariExtensions.update({"module":"Safari Extensions"})  
-    safariExtensions.update({'Extension Name':ext.get("Archive File Name")})
-    safariExtensions.update({'Apple Signed':ext.get("Apple-signed")})
-    safariExtensions.update({'Developer Identifier':ext.get("Developer Identifier")})
-    safariExtensions.update({'Extensions Path':plist_file})
-    safariExtensions.update({"Hostname":hostname})
+    safariExtensions.update({'extension_name':ext.get("Archive File Name")})
+    safariExtensions.update({'apple_signed':ext.get("Apple-signed")})
+    safariExtensions.update({'developer_identifier':ext.get("Developer Identifier")})
+    safariExtensions.update({'extensions_path':plist_file})
+    safariExtensions.update({"hostname":hostname})
     json.dump(safariExtensions,output_file)
     outfile.write("\n")
 
@@ -263,11 +263,11 @@ def getChromeExtensions(path,output_file):
            extensions = {}
            if field == "name":
              if manifest_json.get("name").startswith('__') == False:
-               extensions.update({"Extension Directory Name":directory})
-               extensions.update({"Extension Update Url":manifest_json.get("update_url").strip('u\'')})
-               extensions.update({"Extension Name":manifest_json.get("name").strip('u\'')})
-               extensions.update({"module":"Chrome Extensions"})
-               extensions.update({"Hostname":hostname})
+               extensions.update({"extension_directory_name":directory})
+               extensions.update({"extension_update_url":manifest_json.get("update_url").strip('u\'')})
+               extensions.update({"extension_name":manifest_json.get("name").strip('u\'')})
+               extensions.update({"module":"chrome_extensions"})
+               extensions.update({"hostname":hostname})
                json.dump(extensions,output_file)
                outfile.write("\n")
 
@@ -285,18 +285,18 @@ def getFirefoxExtensions(path,output_file):
 
   for field in extensions_json.get("addons"):
     firefox_extensions = {}
-    firefox_extensions.update({"Extension ID": field.get("id")})
-    firefox_extensions.update({"Extension Update URL": field.get("updateURL")})
-    firefox_extensions.update({"Extension Options URL": field.get("optionsURL")})
-    firefox_extensions.update({"Extension Install Date": field.get("installDate")})
-    firefox_extensions.update({"Extension Last Updated": field.get("updateDate")})
-    firefox_extensions.update({"Extension Source URI": field.get("sourceURI")})
-    firefox_extensions.update({"Extension Name": field.get("defaultLocale").get("name")})
-    firefox_extensions.update({"Extension Description": field.get("defaultLocale").get("description")})    
-    firefox_extensions.update({"Extension Creator": field.get("defaultLocale").get("creator")})
-    firefox_extensions.update({"Extension Homepage URL": field.get("defaultLocale").get("homepageURL")})
-    firefox_extensions.update({"module":"Firefox Extensions"})
-    firefox_extensions.update({"Hostname":hostname})        
+    firefox_extensions.update({"extension_id": field.get("id")})
+    firefox_extensions.update({"extension_update_url": field.get("updateURL")})
+    firefox_extensions.update({"extension_options_url": field.get("optionsURL")})
+    firefox_extensions.update({"extension_install_date": field.get("installDate")})
+    firefox_extensions.update({"extension_last_updated": field.get("updateDate")})
+    firefox_extensions.update({"extension_source_uri": field.get("sourceURI")})
+    firefox_extensions.update({"extension_name": field.get("defaultLocale").get("name")})
+    firefox_extensions.update({"extension_description": field.get("defaultLocale").get("description")})    
+    firefox_extensions.update({"extension_creator": field.get("defaultLocale").get("creator")})
+    firefox_extensions.update({"extension_homepage_url": field.get("defaultLocale").get("homepageURL")})
+    firefox_extensions.update({"module":"firefox_extensions"})
+    firefox_extensions.update({"hostname":hostname})        
     json.dump(firefox_extensions,output_file)
     outfile.write("\n")
 
@@ -311,7 +311,7 @@ def getTmpFiles():
       except:
         ""
   temporaryFiles.update({'tmpFiles':tempFiles})
-  temporaryFiles.update({"Hostname":hostname})
+  temporaryFiles.update({"hostname":hostname})
   return temporaryFiles
 
 def getDownloads():
@@ -325,7 +325,7 @@ def getDownloads():
       except:
         ""
   downloadedFiles.update({'tmpFiles':downloads})
-  downloadedFiles.update({"Hostname":hostname})
+  downloadedFiles.update({"hostname":hostname})
   return downloadedFiles
 
 def getInstallHistory(output_file):
@@ -337,8 +337,8 @@ def getInstallHistory(output_file):
     installList.update({"date":tempdict.get('date')})
     installList.update({"displayName":tempdict.get('displayName')})
     installList.update({"packageIdentifiers":tempdict.get('packageIdentifiers')})
-    installList.update({"module":"Install History"})
-    installList.update({"Hostname":hostname})
+    installList.update({"module":"install_history"})
+    installList.update({"hostname":hostname})
     json.dump(installList,output_file,default=datetime_handler,encoding='latin1')
     output_file.write("\n")
     
@@ -351,8 +351,8 @@ def getCronJobs(users,output_file):
     users_crontab = subprocess.Popen(["crontab","-u",user,"-l"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT).communicate()
     #add user and associated crontabs to dict usercrons
     usercrons.update({user:users_crontab})
-    usercrons.update({"module":"Cron Jobs"})
-    usercrons.update({"Hostname":hostname})
+    usercrons.update({"module":"cron_jobs"})
+    usercrons.update({"hostname":hostname})
     json.dump(usercrons,output_file)
     output_file.write("\n")
   #cronJobs.update({"cronJobs":usercrons})
@@ -367,8 +367,8 @@ def getEmond(output_file):
       emondRules.append(os.path.join(root, name))
   for rule in emondRules:
     allRules.update({rule:plistlib.readPlist(rule)})
-    allRules.update({"module":"Emond Rules"})
-    allRules.update({"Hostname":hostname})
+    allRules.update({"module":"emond_rules"})
+    allRules.update({"hostname":hostname})
     json.dump(allRules,output_file)
     output_file.write("\n")
 
@@ -385,15 +385,11 @@ def getKext(sipStatus,kextPath,output_file):
           kextDict.update({"CFBundleIdentifier":kextPlist.get("CFBundleIdentifier")})
           kextDict.update({"OSBundleRequired":kextPlist.get("OSBundleRequired")})
           kextDict.update({"CFBundleGetInfoString":kextPlist.get("CFBundleGetInfoString")})
-          kextDict.update({"Kext Path":os.path.join(root, name)})
-          kextDict.update({"module":"Kernel Extensions"})
-          kextDict.update({"Hostname":hostname})
+          kextDict.update({"kext_path":os.path.join(root, name)})
+          kextDict.update({"module":"kernel_extensions"})
+          kextDict.update({"hostname":hostname})
           json.dump(kextDict,output_file)
           output_file.write("\n")
-          #eachKext.update({os.path.join(root, name):kextDict})
-  #add a check to do a codesign on the executable
-  #AllKext.update({"Kexts":eachKext})
-  #return AllKext
 
 def getEnv(output_file):
   envVars = subprocess.Popen(["env"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT).communicate()[0].split('\n')
@@ -404,13 +400,10 @@ def getEnv(output_file):
       env.update({envValue[0]:envValue[1]})
     except:
       ""
-    env.update({"module":"Environment Variables"})
-    env.update({"Hostname":hostname})
+    env.update({"module":"environment_variables"})
+    env.update({"hostname":hostname})
     json.dump(env,output_file)
     output_file.write("\n")
-
-def getLoginHooks(): #deprecated
-  return True
 
 def getPeriodicScripts(output_file):
   periodic = {}
@@ -421,8 +414,8 @@ def getPeriodicScripts(output_file):
       for name in files:
         periodicLst.append(name)
       periodic.update({item:periodicLst})
-      periodic.update({"module":"Periodic Scripts"})
-      periodic.update({"Hostname":hostname})
+      periodic.update({"module":"periodic_scripts"})
+      periodic.update({"hostname":hostname})
       json.dump(periodic,output_file)
       output_file.write("\n")
 
@@ -445,13 +438,13 @@ def getConnections(output_file):
       lstofprcs.append(tmplist)
   for process in lstofprcs:
     connections= {}
-    connections.update({"Process Name":process[0]})
-    connections.update({"Process ID":process[1]})
-    connections.update({"User":process[2]})
-    connections.update({"TCP/UDP":process[7]})
-    connections.update({"Connection Flow":process[8]})
-    connections.update({"module":"Established Connections"})
-    connections.update({"Hostname":hostname})
+    connections.update({"process_name":process[0]})
+    connections.update({"process_id":process[1]})
+    connections.update({"user":process[2]})
+    connections.update({"TCP_UDP":process[7]})
+    connections.update({"connection_flow":process[8]})
+    connections.update({"module":"established_connections"})
+    connections.update({"hostname":hostname})
     json.dump(connections,output_file)
     output_file.write("\n")
 
@@ -459,9 +452,9 @@ def SIPStatus(output_file):
   sip = {}
   status = subprocess.Popen(["csrutil","status"], stdout=subprocess.PIPE).communicate()[0]
   status = status.strip('\n').strip(".").split(":")[1].strip(" ")
-  sip.update({"SIP Status":status})
-  sip.update({"module":"System Intergrity Protection"})
-  sip.update({"Hostname":hostname})
+  sip.update({"sip_status":status})
+  sip.update({"module":"system_intergrity_protection"})
+  sip.update({"hostname":hostname})
   json.dump(sip,output_file)
   outfile.write("\n")
   return sip
@@ -470,9 +463,9 @@ def SIPStatus(output_file):
 def GatekeeperStatus(output_file):
   gatekeeper = {}
   status = subprocess.Popen(["spctl","--status"], stdout=subprocess.PIPE).communicate()[0]
-  gatekeeper.update({"Gatekeeper Status":status})
-  gatekeeper.update({"module":"Gatekeeper Status"})
-  gatekeeper.update({"Hostname":hostname})
+  gatekeeper.update({"gatekeeper_status":status})
+  gatekeeper.update({"module":"gatekeeper_status"})
+  gatekeeper.update({"hostname":hostname})
   json.dump(gatekeeper,output_file)
   outfile.write("\n")
 
@@ -491,17 +484,9 @@ def getLoginItems(path,output_file):
         loginApps.append(properties.get("NSURLBookmarkAllPropertiesKey").get("_NSURLPathKey"))
   loginApps = set(loginApps)
   loginApps = list(loginApps)
-  '''for app in loginApps:
-    loginItems = {}
-    loginItems.update({"Login Items":app})
-    loginItems.update({"Hash":getHash(app)})
-    loginItems.update({"Hostname":hostname})
-    loginItems.update({"module":"Login Items"})
-    json.dump(loginItems,output_file)
-    outfile.write("\n")'''
-  loginItems.update({"Login Items":loginApps})
-  loginItems.update({"module":"Login Items"})
-  loginItems.update({"Hostname":hostname})
+  loginItems.update({"login_items":loginApps})
+  loginItems.update({"module":"login_items"})
+  loginItems.update({"hostname":hostname})
   json.dump(loginItems,output_file)
   outfile.write("\n")
   return loginItems
@@ -529,27 +514,15 @@ def getApps(path,output_file):
     if os.path.exists(executable_path):
       app_sig = checkSignature(executable_path,None)
       app_hash = getHash(executable_path)
-    apps.update({"Application":app})
-    apps.update({"module":"Applications"})
-    apps.update({"Hostname":hostname})
-    apps.update({"App Executable":executable_path})
-    apps.update({"App Signature":app_sig})
-    apps.update({"App Hash":app_hash})
+
+    apps.update({"application":app})
+    apps.update({"module":"applications"})
+    apps.update({"hostname":hostname})
+    apps.update({"app_executable":executable_path})
+    apps.update({"app_signature":app_sig})
+    apps.update({"app_hash":app_hash})
     json.dump(apps,output_file)
     outfile.write("\n")
-  #for each application in app_lst
-  #look at the Info.plist file in Contents/Info.plist
-  #extract out the CFBundleExecutable and it's value save it to a variable
-  #Add the path to the binary to the dictionary
-  #Code sign check the binary and add to the dictionary
-  #hash the binary and add to the dictionary
-
-  #apps.update({"Applications":app_lst})
-  #apps.update({"module":"Applications"})
-  #apps.update({"Hostname":hostname})
-  #json.dump(apps,output_file)
-  #outfile.write("\n")
-  #return apps
 
 def getEventTaps(output_file):
   evInfo = Quartz.CGGetEventTapList(10,None,None)
@@ -560,11 +533,11 @@ def getEventTaps(output_file):
     tappedProcess = eTap[6].split("=")[1]
     tappingProcName = subprocess.Popen(["ps", "-p", tappingProcess, "-o", "comm="], stdout=subprocess.PIPE).communicate()[0]
     eventTap.update({"eventTapID":eTap[1].split("=")[1]})
-    eventTap.update({"Tapping Process ID":tappingProcess})
-    eventTap.update({"Tapping Process Name":tappingProcName})
-    eventTap.update({"Tapped Process ID":tappedProcess})
-    eventTap.update({"Enabled":eTap[7].split("=")[1]})
-    eventTap.update({"module":"Event Taps"})
+    eventTap.update({"tapping_process_id":tappingProcess})
+    eventTap.update({"tapping_process_name":tappingProcName})
+    eventTap.update({"tapped_process_id":tappedProcess})
+    eventTap.update({"enabled":eTap[7].split("=")[1]})
+    eventTap.update({"module":"event_taps"})
     json.dump(eventTap,output_file)
     outfile.write("\n")
   
@@ -578,7 +551,7 @@ def getBashHistory(output_file, users):
       history_data = history_data.split('\n')
       userBashHistory.update({"user":user})
       userBashHistory.update({"bash_commands":history_data})
-      userBashHistory.update({"module":"Bash History"})
+      userBashHistory.update({"module":"bash_history"})
       json.dump(userBashHistory,output_file)
       outfile.write("\n")
 
