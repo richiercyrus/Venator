@@ -564,7 +564,7 @@ def getEventTaps(output_file):
     eventTap.update({"Tapping Process Name":tappingProcName})
     eventTap.update({"Tapped Process ID":tappedProcess})
     eventTap.update({"Enabled":eTap[7].split("=")[1]})
-    eventTap.update({"Module":"Event Taps"})
+    eventTap.update({"module":"Event Taps"})
     json.dump(eventTap,output_file)
     outfile.write("\n")
   
@@ -578,7 +578,7 @@ def getBashHistory(output_file, users):
       history_data = history_data.split('\n')
       userBashHistory.update({"user":user})
       userBashHistory.update({"bash_commands":history_data})
-      userBashHistory.update({"Module":"Bash History"})
+      userBashHistory.update({"module":"Bash History"})
       json.dump(userBashHistory,output_file)
       outfile.write("\n")
 
