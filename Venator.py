@@ -511,7 +511,6 @@ def getApps(path,output_file):
   for app in app_lst:
     apps = {}
     app = path+"/"+app
-    print app
     appPlist = app+"/Contents/Info.plist"
     
     if os.path.exists(appPlist):
