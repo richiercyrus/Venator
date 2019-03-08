@@ -20,6 +20,7 @@ import objc
 #get the hostname of the system the script is running on
 hostname = socket.gethostname()
 
+#get system information from the os
 def getSystemInfo(output_file):
     system_data = {}
     uname = os.uname()
@@ -30,6 +31,7 @@ def getSystemInfo(output_file):
     json.dump(system_data,output_file)
     outfile.write("\n")
 
+# get the sha256 hash of any file
 def getHash(file):
     import hashlib
     hasher = hashlib.sha256()
@@ -38,7 +40,7 @@ def getHash(file):
         hasher.update(buf)
     return(hasher.hexdigest())
 
-#Code used from https://github.com/synack/knockknock/blob/master/knockknock.py - Patrick Wardle!
+#Code used from https://github.com/synack/knockknock/blob/master/knockknock.py - Patrick Wardle! - to get the signing information for a given executable
 def checkSignature(file, bundle=None): 
   SECURITY_FRAMEWORK = '/System/Library/Frameworks/Security.framework/Versions/Current/Security'
   kSecCSDefaultFlags = 0x0
@@ -110,7 +112,10 @@ def checkSignature(file, bundle=None):
 			authorities.append(objcRuntime.objc_msgSend(certName, objcRuntime.sel_registerName('UTF8String')))
 
   status = errSecSuccess
-  signingInfo['status'] = signedStatus
+  if signedStatus == 0:
+    signingInfo['status'] = "signed"
+  else:
+    signingInfo['status'] = "unsigned"
   signingInfo['Apple binary'] = isApple
   signingInfo['Authority'] = authorities
   return (signingInfo)
@@ -120,22 +125,17 @@ def datetime_handler(x):
         return x.isoformat()
     #raise TypeError("Unknown type")
 
-def getLaunchAgents(path,output_file):
-    #get all of the launch agents at a specififc location returned into a list
-    systemAgents = os.listdir(path)
-
-    #for each of the launchAgents, parse the contents into a dictionary, add the name of the plist and the location to the dictionary
-    for agent in systemAgents:
-      parsedAgent = {}
-      plist_file = path+"/"+agent
-      plist_type = subprocess.Popen(["file", plist_file], stdout=subprocess.PIPE).communicate()
-      plist_type = plist_type[0].split(":")[1].strip("\n").strip(" ")
-      #if else the file is a binary plist, then we have to use the Foundations framework to read the plist cleanly
-      if plist_type == 'Apple binary property list':
-        plist = Foundation.NSDictionary.dictionaryWithContentsOfFile_(plist_file)
-      elif plist_type == 'XML 1.0 document text, ASCII text':
-        plist = plistlib.readPlist(plist_file)
-      elif plist_type == 'exported SGML document text, ASCII text':
+def parseAgentsDaemons(item,path):
+  parsedPlist = {}
+  plist_file = path+"/"+item
+  plist_type = subprocess.Popen(["file", plist_file], stdout=subprocess.PIPE).communicate()
+  plist_type = plist_type[0].split(":")[1].strip("\n").strip(" ")
+  #if else the file is a binary plist, then we have to use external library to parse
+  if plist_type == 'Apple binary property list':
+    plist = Foundation.NSDictionary.dictionaryWithContentsOfFile_(plist_file)
+  elif plist_type == 'XML 1.0 document text, ASCII text':
+    plist = plistlib.readPlist(plist_file)
+  elif plist_type == 'exported SGML document text, ASCII text':
         plist_text = subprocess.Popen(["cat", plist_file], stdout=subprocess.PIPE).communicate()
         #plist_text = plist_text[0].split("\n")
         if plist_text[0].split("\n")[0].startswith("<?xml"):
@@ -147,75 +147,62 @@ def getLaunchAgents(path,output_file):
           #del plist_text[0]
           #str1 = '\n'.join(plist_text)
           plist = plistlib.readPlistFromString(plist_string)
-      if plist.get("ProgramArguments"):
-        progExecutable = plist.get("ProgramArguments")[0]
-        progExecutableHash = getHash(progExecutable)
-      elif plist.get("Program"):
-        progExecutable = plist.get("Program")
-        if progExecutable.startswith('REPLACE_HOME'):
-          findHomeStart = plist_file.find("/Library")
-          progExecutable = progExecutable.replace('REPLACE_HOME',plist_file[:findHomeStart])
-        #progExecutableHash = getHash(progExecutable)
-        progExecutableHash = "Something is wrong here"
-      else:
-        progExecutable = "None"
-        progExecutableHash = "None"
-    
+
+  if plist.get("ProgramArguments"):
+    progExecutable = plist.get("ProgramArguments")[0]
+    if os.path.exists(progExecutable):
+      progExecutableHash = getHash(progExecutable)
+    else:
+      progExecutableHash = "Parsing Error"
+  elif plist.get("Program"):
+    progExecutable = plist.get("Program")
+    if progExecutable.startswith('REPLACE_HOME'):
+      findHomeStart = plist_file.find("/Library")
+      progExecutable = progExecutable.replace('REPLACE_HOME',plist_file[:findHomeStart])
+    progExecutableHash = getHash(progExecutable)
+    #progExecutableHash = "Something is wrong here"
+  else:
+    progExecutable = "None"
+    progExecutableHash = "Something is wrong here"
+  
+  if plist.get("RunAtLoad"):
+    parsedPlist.update({'runAtLoad': str(plist.get("RunAtLoad"))})
+  parsedPlist.update({'label': str(plist.get("Label"))})
+  parsedPlist.update({'program': str(plist.get("Program"))})
+  parsedPlist.update({'program_arguments': (str(plist.get("ProgramArguments"))).strip("[").strip("]")})
+  parsedPlist.update({"signing_info":checkSignature(progExecutable)})
+  parsedPlist.update({'hash':progExecutableHash}) 
+  parsedPlist.update({'executable':progExecutable})
+  parsedPlist.update({'plist_hash':getHash(plist_file)})
+  parsedPlist.update({'path':plist_file})
+  return parsedPlist
+
+def getLaunchAgents(path,output_file):
+    #get all of the launch agents at a specififc location returned into a list
+    launchAgents = os.listdir(path)
+    #for each of the launchAgents, parse the contents into a dictionary, add the name of the plist and the location to the dictionary
+    for agent in launchAgents:
+      parsedAgent = {}
+      parsedAgent = parseAgentsDaemons(agent,path)
       #print progExecutable
-      parsedAgent.update({'label': str(plist.get("Label"))})
-      parsedAgent.update({'program': str(plist.get("Program"))})
-      parsedAgent.update({'program_arguments':(str(plist.get("ProgramArguments"))).strip("[").strip("]")})
-      #added the prgamExecutable from the programArguments field
-      parsedAgent.update({"executable":progExecutable})
-      parsedAgent.update({"executable_hash":progExecutableHash})
-      parsedAgent.update({"signing_info":checkSignature(progExecutable)})
-      parsedAgent.update({'runAtLoad': str(plist.get("RunAtLoad"))})
-      parsedAgent.update({'hash': getHash(plist_file)})
-      parsedAgent.update({'path': plist_file})
       parsedAgent.update({"module":"launch_agents"})
       parsedAgent.update({"hostname":hostname})
       json.dump(parsedAgent,output_file)
       outfile.write("\n")
-
+      
 def getLaunchDaemons(path,output_file):
-
-    systemDaemons = os.listdir(path)
+    launchDaemons = os.listdir(path)
     #parsedDaemon = {}
     #for each of the launchAgents, parse the contents into a dictionary, add the name of the plist and the location to the dictionary
-    for daemon in systemDaemons:
+    for daemon in launchDaemons:
       parsedDaemon = {}
-      plist_file = path+"/"+daemon
-      plist_type = subprocess.Popen(["file", plist_file], stdout=subprocess.PIPE).communicate()
-      plist_type = plist_type[0].split(":")[1].strip("\n").strip(" ")
-      #if else the file is a binary plist, then we have to use external library to parse
-      if plist_type == 'Apple binary property list':
-        plist = Foundation.NSDictionary.dictionaryWithContentsOfFile_(plist_file)
-      elif plist_type == 'XML 1.0 document text, ASCII text':
-        plist = plistlib.readPlist(plist_file)
-      
-      if plist.get("ProgramArguments"):
-        progExecutable = plist.get("ProgramArguments")[0]
-        progExecutableHash = getHash(progExecutable)
-      elif plist.get("Program"):
-        progExecutable = plist.get("Program")
-        progExecutableHash = getHash(progExecutable)
-        #progExecutableHash = "Something is wrong here"
-      else:
-        progExecutable = "None"
-        progExecutableHash = "Something is wrong here"
-
-      parsedDaemon.update({'label': str(plist.get("Label"))})
-      parsedDaemon.update({'program': str(plist.get("Program"))})
-      parsedDaemon.update({'program_arguments': str(plist.get("ProgramArguments"))})
-      parsedDaemon.update({"executable":progExecutable})
-      parsedDaemon.update({"executable_hash":progExecutableHash})
-      parsedDaemon.update({'hash': getHash(plist_file)})
-      parsedDaemon.update({'path': plist_file})
+      parsedDaemon = parseAgentsDaemons(daemon,path)
       parsedDaemon.update({"module":"launch_daemons"})
       parsedDaemon.update({"hostname":hostname})
       json.dump(parsedDaemon,output_file)
       outfile.write("\n") 
 
+#get a list of users on the system      
 def getUsers(output_file):
     users_dict = {}
     all_users = []
@@ -233,6 +220,7 @@ def getUsers(output_file):
     outfile.write("\n")
     return users_dict
 
+#get all the safari extensions on the system
 def getSafariExtensions(path,output_file):
   #safariExtensions = {}
   extension = []
@@ -249,6 +237,7 @@ def getSafariExtensions(path,output_file):
     json.dump(safariExtensions,output_file)
     outfile.write("\n")
 
+#get all chrome extensions on the system
 def getChromeExtensions(path,output_file):
   extensions_directories = os.listdir(path)
   for directory in extensions_directories:
@@ -271,6 +260,7 @@ def getChromeExtensions(path,output_file):
                json.dump(extensions,output_file)
                outfile.write("\n")
 
+#get all firefoix extensions on the system
 def getFirefoxExtensions(path,output_file):
   with open(path+"profiles.ini",'r') as profile_data:
     profile_dump = profile_data.read()
@@ -469,9 +459,38 @@ def GatekeeperStatus(output_file):
   json.dump(gatekeeper,output_file)
   outfile.write("\n")
 
+def parseApp(app):
+  appInfo = {}
+  appPlist = app+"/Contents/Info.plist"
+  if os.path.exists(appPlist):
+    plist_type = subprocess.Popen(["file", appPlist], stdout=subprocess.PIPE).communicate()
+    plist_type = plist_type[0].split(":")[1].strip("\n").strip(" ")
+    plist = None
+    if plist_type == 'Apple binary property list':
+      plist = Foundation.NSDictionary.dictionaryWithContentsOfFile_(appPlist)
+      #elif (plist_type == 'XML 1.0 document text, ASCII text' or plist_type =='XML 1.0 document text, UTF-8 Unicode text'):
+    elif "XML 1.0 document text" in plist_type:
+      plist = plistlib.readPlist(appPlist)
+      
+    executable = plist.get("CFBundleExecutable")
+    executable_path = app+"/Contents/MacOS/"+executable
+    
+    if os.path.exists(executable_path):
+      app_sig = checkSignature(executable_path,None)
+      app_hash = getHash(executable_path)
+    else:
+      app_sig = "Parsing Error"
+      app_hash = "Parsing Error"
+
+    appInfo.update({"application":app})
+    appInfo.update({"executable":executable_path})
+    appInfo.update({"application_hash":app_hash})
+    appInfo.update({"signature":app_sig})
+  return appInfo
+
 def getLoginItems(path,output_file):
   #Parsing - Library/Application\ Support/com.apple.backgroundtaskmanagementagent/backgrounditems.btm
-  loginItems = {}
+  
   plist_file = path
   loginApps = []
   plist = Foundation.NSDictionary.dictionaryWithContentsOfFile_(plist_file)
@@ -484,43 +503,22 @@ def getLoginItems(path,output_file):
         loginApps.append(properties.get("NSURLBookmarkAllPropertiesKey").get("_NSURLPathKey"))
   loginApps = set(loginApps)
   loginApps = list(loginApps)
-  loginItems.update({"login_items":loginApps})
-  loginItems.update({"module":"login_items"})
-  loginItems.update({"hostname":hostname})
-  json.dump(loginItems,output_file)
-  outfile.write("\n")
-  return loginItems
+  for item in loginApps:
+    loginItems = {}
+    loginItems = parseApp(item)
+    loginItems.update({"module":"login_items"})
+    loginItems.update({"hostname":hostname})
+    json.dump(loginItems,output_file)
+    outfile.write("\n")
 
 def getApps(path,output_file):
   app_lst = os.listdir(path)
   for app in app_lst:
     apps = {}
     app = path+"/"+app
-    appPlist = app+"/Contents/Info.plist"
-    
-    if os.path.exists(appPlist):
-      plist_type = subprocess.Popen(["file", appPlist], stdout=subprocess.PIPE).communicate()
-      plist_type = plist_type[0].split(":")[1].strip("\n").strip(" ")
-      plist = None
-      if plist_type == 'Apple binary property list':
-        plist = Foundation.NSDictionary.dictionaryWithContentsOfFile_(appPlist)
-      #elif (plist_type == 'XML 1.0 document text, ASCII text' or plist_type =='XML 1.0 document text, UTF-8 Unicode text'):
-      elif "XML 1.0 document text" in plist_type:
-        plist = plistlib.readPlist(appPlist)
-      
-      executable = plist.get("CFBundleExecutable")
-      executable_path = app+"/Contents/MacOS/"+executable
-    
-    if os.path.exists(executable_path):
-      app_sig = checkSignature(executable_path,None)
-      app_hash = getHash(executable_path)
-
-    apps.update({"application":app})
+    apps = parseApp(app)
     apps.update({"module":"applications"})
     apps.update({"hostname":hostname})
-    apps.update({"app_executable":executable_path})
-    apps.update({"app_signature":app_sig})
-    apps.update({"app_hash":app_hash})
     json.dump(apps,output_file)
     outfile.write("\n")
 
@@ -569,7 +567,6 @@ if __name__ == '__main__':
   parser.add_argument('-f',metavar='File Name',default=outputFile, help='Name of your output file (by default the name is: "data".')
   parser.add_argument('-d', metavar='Directory',default=outputDirectory, help='Directory of your output file (by default it is the current working directory.')
   parser.add_argument('-a', metavar='AWS Key', help='Your AWS Key if you want to upload to S3 bucket.')
-  parser.add_argument('-n', action='store_true', help='Send nuke command to delete all files 24 hours after running script.')
   args = parser.parse_args()
   
   outputPath = args.d+"/"+args.f+".json"
@@ -581,7 +578,7 @@ if __name__ == '__main__':
   with open(outputPath, 'w') as outfile:
 
     lst_of_users = getUsers(outfile).get("users")
-    sipEnabled = SIPStatus(outfile).get("SIP Status")
+    sipEnabled = SIPStatus(outfile).get("sip_status")
 
   
     modules = [getSystemInfo(outfile),getInstallHistory(outfile),GatekeeperStatus(outfile),getConnections(outfile),
@@ -620,4 +617,4 @@ if __name__ == '__main__':
     if sipStatus == False:
       output_list.append(getLaunchAgents('/System/Library/LaunchAgents',outfile))
       output_list.append(getLaunchDaemons('/System/Library/LaunchDaemons',outfile))
-      output_list.append(getKext(sipStatus,'System/Library/Extensions',outfile))
+      output_list.append(getKext(sipStatus,'/System/Library/Extensions',outfile))
