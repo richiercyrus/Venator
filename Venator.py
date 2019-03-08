@@ -564,8 +564,8 @@ if __name__ == '__main__':
 
 
   parser = argparse.ArgumentParser(description='Helpful information for running your macOS Hunting Script.')
-  parser.add_argument('-f',metavar='File Name',default=outputFile, help='Name of your output file (by default the name is: "data".')
-  parser.add_argument('-d', metavar='Directory',default=outputDirectory, help='Directory of your output file (by default it is the current working directory.')
+  parser.add_argument('-f',metavar='File Name',default=outputFile, help='Name of your output file (by default the name is the hostname of the system).')
+  parser.add_argument('-d', metavar='Directory',default=outputDirectory, help='Directory of your output file (by default it is the current working directory).')
   parser.add_argument('-a', metavar='AWS Key', help='Your AWS Key if you want to upload to S3 bucket.')
   args = parser.parse_args()
   
