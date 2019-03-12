@@ -503,7 +503,11 @@ def getLoginItems(path,output_file):
   plist = Foundation.NSDictionary.dictionaryWithContentsOfFile_(plist_file)
   objects = plist.get("$objects")
   for item in objects:
-    if item.isKindOfClass_(Foundation.NSClassFromString("NSDictionary")) == True:
+    if item.isKindOfClass_(Foundation.NSClassFromString("NSData")) == True:
+      bookmark = item
+      properties = Foundation.NSURL.resourceValuesForKeys_fromBookmarkData_(['NSURLBookmarkAllPropertiesKey'],bookmark)
+      loginApps.append(properties.get("NSURLBookmarkAllPropertiesKey").get("_NSURLPathKey"))
+    elif item.isKindOfClass_(Foundation.NSClassFromString("NSDictionary")) == True:
       if item.has_key("NS.data"):
         bookmark = item.get("NS.data")
         properties = Foundation.NSURL.resourceValuesForKeys_fromBookmarkData_(['NSURLBookmarkAllPropertiesKey'],bookmark)
