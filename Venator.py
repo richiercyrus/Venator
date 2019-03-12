@@ -129,44 +129,51 @@ def parseAgentsDaemons(item,path):
   parsedPlist = {}
   plist_file = path+"/"+item
   plist_type = subprocess.Popen(["file", plist_file], stdout=subprocess.PIPE).communicate()
+  #get the plist type
   plist_type = plist_type[0].split(":")[1].strip("\n").strip(" ")
   #if else the file is a binary plist, then we have to use external library to parse
-  if plist_type == 'Apple binary property list':
-    plist = Foundation.NSDictionary.dictionaryWithContentsOfFile_(plist_file)
-  elif plist_type == 'XML 1.0 document text, ASCII text':
-    plist = plistlib.readPlist(plist_file)
-  elif plist_type == 'exported SGML document text, ASCII text':
-        plist_text = subprocess.Popen(["cat", plist_file], stdout=subprocess.PIPE).communicate()
-        #plist_text = plist_text[0].split("\n")
-        if plist_text[0].split("\n")[0].startswith("<?xml"):
-          #plist = plistlib.readPlist(plist_file)
-          plistlib.readPlistFromString(plist_text)
-        else:
-          xml_start = plist_text[0].find('<?xml')
-          plist_string = plist_text[0][xml_start:]
-          #del plist_text[0]
-          #str1 = '\n'.join(plist_text)
-          plist = plistlib.readPlistFromString(plist_string)
+  try:
+    if plist_type == 'Apple binary property list':
+      plist = Foundation.NSDictionary.dictionaryWithContentsOfFile_(plist_file)
+    elif plist_type == 'XML 1.0 document text, ASCII text':
+      plist = plistlib.readPlist(plist_file)
+    elif plist_type == 'exported SGML document text, ASCII text':
+      plist_text = subprocess.Popen(["cat", plist_file], stdout=subprocess.PIPE).communicate()
+      #plist_text = plist_text[0].split("\n")
+      if plist_text[0].split("\n")[0].startswith("<?xml"):
+        #plist = plistlib.readPlist(plist_file)
+        plistlib.readPlistFromString(plist_text)
+      else:
+        xml_start = plist_text[0].find('<?xml')
+        plist_string = plist_text[0][xml_start:]
+        #del plist_text[0]
+        #str1 = '\n'.join(plist_text)
+        plist = plistlib.readPlistFromString(plist_string)
+  except:
+    parsedPlist.update({'plist_format_error': ("Unknown plist type of "+plist_type+" for plist "+ plist_file)})
+    return parsedPlist
 
-  if plist.get("ProgramArguments"):
-    progExecutable = plist.get("ProgramArguments")[0]
-    if os.path.exists(progExecutable):
+  try:
+    if plist.get("ProgramArguments"):
+      progExecutable = plist.get("ProgramArguments")[0]
+      if os.path.exists(progExecutable):
+        try:
+          progExecutableHash = getHash(progExecutable)
+        except:
+          progExecutableHash = "Error hashing "+progExecutable
+    elif plist.get("Program"):
+      progExecutable = plist.get("Program")
+      if progExecutable.startswith('REPLACE_HOME'):
+        findHomeStart = plist_file.find("/Library")
+        progExecutable = progExecutable.replace('REPLACE_HOME',plist_file[:findHomeStart])
       progExecutableHash = getHash(progExecutable)
-    else:
-      progExecutableHash = "Parsing Error"
-  elif plist.get("Program"):
-    progExecutable = plist.get("Program")
-    if progExecutable.startswith('REPLACE_HOME'):
-      findHomeStart = plist_file.find("/Library")
-      progExecutable = progExecutable.replace('REPLACE_HOME',plist_file[:findHomeStart])
-    progExecutableHash = getHash(progExecutable)
-    #progExecutableHash = "Something is wrong here"
-  else:
-    progExecutable = "None"
-    progExecutableHash = "Something is wrong here"
+  except:
+    progExecutable = "Error parsing or no associated executable"
+    progExecutableHash = "No executable to parse"
   
   if plist.get("RunAtLoad"):
     parsedPlist.update({'runAtLoad': str(plist.get("RunAtLoad"))})
+  
   parsedPlist.update({'label': str(plist.get("Label"))})
   parsedPlist.update({'program': str(plist.get("Program"))})
   parsedPlist.update({'program_arguments': (str(plist.get("ProgramArguments"))).strip("[").strip("]")})
