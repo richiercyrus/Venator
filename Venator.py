@@ -235,7 +235,7 @@ def getSafariExtensions(path,output_file):
   plist = Foundation.NSDictionary.dictionaryWithContentsOfFile_(plist_file)
   for ext in plist.get("Installed Extensions"):
     safariExtensions = {}
-    safariExtensions.update({"module":"Safari Extensions"})  
+    safariExtensions.update({"module":"safari_extensions"})  
     safariExtensions.update({'extension_name':ext.get("Archive File Name")})
     safariExtensions.update({'apple_signed':ext.get("Apple-signed")})
     safariExtensions.update({'developer_identifier':ext.get("Developer Identifier")})
