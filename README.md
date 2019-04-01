@@ -2,13 +2,15 @@
 
 Venator is a python tool used for gathering data for the purpose of proactive macOS detection. Support for High Sierra & Mojave using native macOS python version (2.7.x). Happy Hunting!
 
-"Placeholder for the run as root error message"
-
-"Placeholder for the HELP menu"
-
+![](https://github.com/richiercyrus/Venator/blob/development/images/Screen%20Shot%202019-03-30%20at%202.01.47%20PM.png)
 `Of note, S3 funtionality will be part of a upcoming release.`
 
-Below are the Venator modules and the data each module contains. Once the script is complete, you can search for data by module in the following way:
+**The script needs root permissions to run, or else you will get the error message below.**
+![](https://github.com/richiercyrus/Venator/blob/development/images/Screen%20Shot%202019-03-30%20at%201.59.31%20PM.png)
+
+
+
+Below are the Venator modules and the data each module contains. Once the script is complete, you will be provide a JSON file for futher analysis/ingestion into a SIEM solution. You can search for data by module in the following way within the JSON file:
 `module:<name of module>`
 
 `system_info`: 
