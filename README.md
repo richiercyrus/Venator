@@ -1,8 +1,15 @@
 # Venator
 
-Venator is a python tool used for gathering data for the purpose of proactive macOS detection. It is designed to support the native macOS python installation (2.7.x). Happy macOS Hunting!
+Venator is a python tool used for gathering data for the purpose of proactive macOS detection. Support for High Sierra & Mojave using native macOS python version (2.7.x). Happy Hunting!
 
-Venator modules:
+"Placeholder for the run as root error message"
+
+"Placeholder for the HELP menu"
+
+`Of note, S3 funtionality will be part of a upcoming release.`
+
+Below are the Venator modules and the data each module contains. Once the script is complete, you can search for data by module in the following way:
+`module:<name of module>`
 
 `system_info`: 
 * hostname
@@ -13,94 +20,119 @@ Venator modules:
 * label
 * program
 * program_arguments
-* runAtLoad
+* signing_info
 * hash
 * executable
 * plist_hash
 * path
+* runAtLoad
 * hostname
 
 `launch_daemons`:
 * label
 * program
 * program_arguments
-* runAtLoad
+* signing_info
 * hash
 * executable
 * plist_hash
 * path
+* runAtLoad
 * hostname
 
 `users`: 
-* users on the system
+* users
+* hostname
 
 `safari_extensions`: 
 * extension name
-* extension signature info
-* developer identifier
-* extensions path
+* apple_signed
+* developer_identifier
+* extension_path
+* hostname
 
 `chrome_extensions`: 
-* directory name
-* extension update url
-* extension name
+* extension_directory_name
+* extension_update_url
+* extension_name
+* hostname
 
 `firefox_extensions`: 
-* Extension ID
-* Extension Update URL
-* Extension Options URL
-* Extension Install Date
-* Extension Last Updated
-* Extension Source URI 
-* Extension Name 
-* Extension Description
-* Extension Creator
-* Extension Homepage URL
+* extension_id
+* extension_update_url
+* extension_options_url
+* extension_install_date
+* extension_last_updated
+* extension_source_uri 
+* extension_name
+* extension_description
+* extension_creator
+* extension_homepage_url
+* hostname
 
 `install_history`: 
-* install date
-* display name
-* package identifier
+* install_date
+* display_name
+* package_identifier
+* hostname
 
 `cron_jobs`: 
-*  For each user show every listed cron job
+* user
+* crontab
+* hostname
 
 `emond_rules`: 
+* rule
 * path
-* contents of the plist for each listed in the directory
+* hostname
 
-`environemnt_variables`: 
-* list of the enviornment variables on the system and their values
+`environment_variables`: 
+* hostname
+* variable:value
 
 `periodic_scripts`: 
-* list of all the periodic scripts on the system
+* hostname
+* periodic_script:"content of script"
 
 `current_connections`: 
-* all connections on the system
-* process name
-* process id
+* process_name
+* process_id
 * user
-* tcp/udp
-* connection flow
+* TCP_UDP
+* connection_flow
+* hostname
 
 `sip_status`: 
-* Enabled or not.
+* sip_status
+* hostname
 
 `gatekeeper_status`: 
-* enabled or not.
+* gatekeeper_status
+* hostname
 
 `login_items`: 
-* All login items on the system
+* hostname
+* application
+* executable
+* application_hash
+* signature
 
 `applications`: 
-* A list of all applications on the system
+* hostname
+* application
+* executable
+* application_hash
+* signature
 
 `event_taps`: 
-* list of all currently registered event taps
-* event tap id
-* tapping process id
-* tapping process name
-* tapped process id
+* eventTapID
+* tapping_process_id
+* tapping_process_name
+* tapped_process_id
+* enabled
+* hostname
 
 `bash_history`: 
-* Dump of bash history on the system
+* user
+* bash_commands
+* hostname

@@ -239,7 +239,7 @@ def getSafariExtensions(path,output_file):
     safariExtensions.update({'extension_name':ext.get("Archive File Name")})
     safariExtensions.update({'apple_signed':ext.get("Apple-signed")})
     safariExtensions.update({'developer_identifier':ext.get("Developer Identifier")})
-    safariExtensions.update({'extensions_path':plist_file})
+    safariExtensions.update({'extension_path':plist_file})
     safariExtensions.update({"hostname":hostname})
     json.dump(safariExtensions,output_file)
     outfile.write("\n")
@@ -331,9 +331,9 @@ def getInstallHistory(output_file):
   for item in history:
     tempdict = item
     installList = {}
-    installList.update({"date":tempdict.get('date')})
-    installList.update({"displayName":tempdict.get('displayName')})
-    installList.update({"packageIdentifiers":tempdict.get('packageIdentifiers')})
+    installList.update({"install_date":tempdict.get('date')})
+    installList.update({"display_name":tempdict.get('displayName')})
+    installList.update({"package_identifier":tempdict.get('packageIdentifiers')})
     installList.update({"module":"install_history"})
     installList.update({"hostname":hostname})
     json.dump(installList,output_file,default=datetime_handler,encoding='latin1')
@@ -347,7 +347,8 @@ def getCronJobs(users,output_file):
     #results in a tuple
     users_crontab = subprocess.Popen(["crontab","-u",user,"-l"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT).communicate()
     #add user and associated crontabs to dict usercrons
-    usercrons.update({user:users_crontab})
+    usercrons.update({"user":user})
+    usercrons.update({"crontab":users_crontab})
     usercrons.update({"module":"cron_jobs"})
     usercrons.update({"hostname":hostname})
     json.dump(usercrons,output_file)
@@ -364,6 +365,7 @@ def getEmond(output_file):
       emondRules.append(os.path.join(root, name))
   for rule in emondRules:
     allRules.update({rule:plistlib.readPlist(rule)})
+    allRules.update({"rule":rule})
     allRules.update({"module":"emond_rules"})
     allRules.update({"hostname":hostname})
     json.dump(allRules,output_file)
@@ -542,6 +544,7 @@ def getEventTaps(output_file):
     tappedProcess = eTap[6].split("=")[1]
     tappingProcName = subprocess.Popen(["ps", "-p", tappingProcess, "-o", "comm="], stdout=subprocess.PIPE).communicate()[0]
     eventTap.update({"eventTapID":eTap[1].split("=")[1]})
+    eventTap.update({"hostname":hostname})
     eventTap.update({"tapping_process_id":tappingProcess})
     eventTap.update({"tapping_process_name":tappingProcName})
     eventTap.update({"tapped_process_id":tappedProcess})
@@ -559,6 +562,7 @@ def getBashHistory(output_file, users):
         history_data = bash_history.read()
       history_data = history_data.split('\n')
       userBashHistory.update({"user":user})
+      userBashHistory.update({"hostname":hostname})
       userBashHistory.update({"bash_commands":history_data})
       userBashHistory.update({"module":"bash_history"})
       json.dump(userBashHistory,output_file)
