@@ -16,6 +16,7 @@ import argparse
 import ctypes
 import ctypes.util
 import objc
+import platform
 
 #get the hostname of the system the script is running on
 hostname = socket.gethostname()
@@ -24,9 +25,13 @@ hostname = socket.gethostname()
 def getSystemInfo(output_file):
     system_data = {}
     uname = os.uname()
+    macos_version = platform.mac_ver()[0]
+    macos_arch = platform.mac_ver()[2]
     system_data.update({'hostname':uname[1]})
     system_data.update({'kernel':uname[2]})
     system_data.update({'kernel_release':uname[3].split(';')[1].split(':')[1]})
+    system_data.update({'macOS_version':macos_version})
+    system_data.update({'macOS_arch':macos_arch})
     system_data.update({"module":"system_info"})
     json.dump(system_data,output_file)
     outfile.write("\n")
@@ -268,7 +273,7 @@ def getChromeExtensions(path,output_file):
                json.dump(extensions,output_file)
                outfile.write("\n")
 
-#get all firefoix extensions on the system
+#get all firefox extensions on the system
 def getFirefoxExtensions(path,output_file):
   with open(path+"profiles.ini",'r') as profile_data:
     profile_dump = profile_data.read()
