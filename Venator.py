@@ -233,16 +233,17 @@ def getSafariExtensions(path,output_file):
   extension = []
   plist_file = path+'/Extensions.plist'
   plist = Foundation.NSDictionary.dictionaryWithContentsOfFile_(plist_file)
-  for ext in plist.get("Installed Extensions"):
-    safariExtensions = {}
-    safariExtensions.update({"module":"safari_extensions"})  
-    safariExtensions.update({'extension_name':ext.get("Archive File Name")})
-    safariExtensions.update({'apple_signed':ext.get("Apple-signed")})
-    safariExtensions.update({'developer_identifier':ext.get("Developer Identifier")})
-    safariExtensions.update({'extension_path':plist_file})
-    safariExtensions.update({"hostname":hostname})
-    json.dump(safariExtensions,output_file)
-    outfile.write("\n")
+  if plist:
+    for ext in plist.get("Installed Extensions"):
+      safariExtensions = {}
+      safariExtensions.update({"module":"safari_extensions"})  
+      safariExtensions.update({'extension_name':ext.get("Archive File Name")})
+      safariExtensions.update({'apple_signed':ext.get("Apple-signed")})
+      safariExtensions.update({'developer_identifier':ext.get("Developer Identifier")})
+      safariExtensions.update({'extension_path':plist_file})
+      safariExtensions.update({"hostname":hostname})
+      json.dump(safariExtensions,output_file)
+      outfile.write("\n")
 
 #get all chrome extensions on the system
 def getChromeExtensions(path,output_file):
