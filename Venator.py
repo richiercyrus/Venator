@@ -147,17 +147,22 @@ def parseAgentsDaemons(item,path):
       #plist_text = plist_text[0].split("\n")
       if plist_text[0].split("\n")[0].startswith("<?xml"):
         #plist = plistlib.readPlist(plist_file)
-        plistlib.readPlistFromString(plist_text)
+        plist = plistlib.readPlistFromString(plist_text)
       else:
         xml_start = plist_text[0].find('<?xml')
         plist_string = plist_text[0][xml_start:]
         #del plist_text[0]
         #str1 = '\n'.join(plist_text)
         plist = plistlib.readPlistFromString(plist_string)
+    #if the plist does not match any of the other types then update the dictionary and return it with a error.
+    else:
+      parsedPlist.update({'plist_format_error': ("Unknown plist type of "+plist_type+" for plist "+ plist_file)})
+      return parsedPlist
   except:
-    parsedPlist.update({'plist_format_error': ("Unknown plist type of "+plist_type+" for plist "+ plist_file)})
-    return parsedPlist
+      parsedPlist.update({'plist_format_error': ("Unknown plist type of "+plist_type+" for plist "+ plist_file)})
+      return parsedPlist
 
+  progExecutableHash = ""
   try:
     if plist.get("ProgramArguments"):
       progExecutable = plist.get("ProgramArguments")[0]
@@ -168,26 +173,28 @@ def parseAgentsDaemons(item,path):
           progExecutableHash = "Error hashing "+progExecutable
     elif plist.get("Program"):
       progExecutable = plist.get("Program")
+      progExecutableHash = getHash(progExecutable)
       if progExecutable.startswith('REPLACE_HOME'):
         findHomeStart = plist_file.find("/Library")
         progExecutable = progExecutable.replace('REPLACE_HOME',plist_file[:findHomeStart])
-      progExecutableHash = getHash(progExecutable)
+        progExecutableHash = getHash(progExecutable)
   except:
     progExecutable = "Error parsing or no associated executable"
     progExecutableHash = "No executable to parse"
   
-  if plist.get("RunAtLoad"):
-    parsedPlist.update({'runAtLoad': str(plist.get("RunAtLoad"))})
-  
-  parsedPlist.update({'label': str(plist.get("Label"))})
-  parsedPlist.update({'program': str(plist.get("Program"))})
-  parsedPlist.update({'program_arguments': (str(plist.get("ProgramArguments"))).strip("[").strip("]")})
-  parsedPlist.update({"signing_info":checkSignature(progExecutable)})
-  parsedPlist.update({'hash':progExecutableHash}) 
-  parsedPlist.update({'executable':progExecutable})
-  parsedPlist.update({'plist_hash':getHash(plist_file)})
-  parsedPlist.update({'path':plist_file})
-  return parsedPlist
+  if plist:
+    if plist.get("RunAtLoad"):
+      parsedPlist.update({'runAtLoad': str(plist.get("RunAtLoad"))})
+    
+    parsedPlist.update({'label': str(plist.get("Label"))})
+    parsedPlist.update({'program': str(plist.get("Program"))})
+    parsedPlist.update({'program_arguments': (str(plist.get("ProgramArguments"))).strip("[").strip("]")})
+    parsedPlist.update({"signing_info":checkSignature(progExecutable)})
+    parsedPlist.update({'hash':progExecutableHash}) 
+    parsedPlist.update({'executable':progExecutable})
+    parsedPlist.update({'plist_hash':getHash(plist_file)})
+    parsedPlist.update({'path':plist_file})
+    return parsedPlist
 
 def getLaunchAgents(path,output_file):
     #get all of the launch agents at a specififc location returned into a list
@@ -275,11 +282,13 @@ def getChromeExtensions(path,output_file):
 
 #get all firefox extensions on the system
 def getFirefoxExtensions(path,output_file):
-  with open(path+"profiles.ini",'r') as profile_data:
-    profile_dump = profile_data.read()
+  try:
+    with open(path+"profiles.ini",'r') as profile_data:
+      profile_dump = profile_data.read()
+  except:
+    return
   
-  extensions_path = profile_dump[profile_dump.find("Path="):profile_dump.find(".default")+8]
-      
+  extensions_path = profile_dump[profile_dump.find("Path="):profile_dump.find(".default")+8] 
   extensions_path = extensions_path.split("=")[1]
 
   with open(path+extensions_path+"/extensions.json", 'r') as extensions:
@@ -364,7 +373,6 @@ def getCronJobs(users,output_file):
 
 def getEmond(output_file):
   emondRules = []
-  Emond = {}
   allRules = {}
   for root, dirs, files in os.walk('/etc/emond.d/rules/', topdown=False):
     for name in files:
@@ -401,10 +409,7 @@ def getEnv(output_file):
   for var in envVars:
     env = {}
     envValue = var.split("=")
-    try:
-      env.update({envValue[0]:envValue[1]})
-    except:
-      ""
+    env.update({envValue[0]:envValue[1]})
     env.update({"module":"environment_variables"})
     env.update({"hostname":hostname})
     json.dump(env,output_file)
@@ -486,6 +491,9 @@ def parseApp(app):
       #elif (plist_type == 'XML 1.0 document text, ASCII text' or plist_type =='XML 1.0 document text, UTF-8 Unicode text'):
     elif "XML 1.0 document text" in plist_type:
       plist = plistlib.readPlist(appPlist)
+    else:
+      appInfo.update({"application":app})
+      return appInfo
       
     executable = plist.get("CFBundleExecutable")
     executable_path = app+"/Contents/MacOS/"+executable
@@ -498,14 +506,14 @@ def parseApp(app):
       app_hash = "Parsing Error"
 
     appInfo.update({"application":app})
-    appInfo.update({"executable":executable_path})
+    appInfo.update({"executable":executable})
+    appInfo.update({"executable_path":executable_path})
     appInfo.update({"application_hash":app_hash})
     appInfo.update({"signature":app_sig})
   return appInfo
 
 def getLoginItems(path,output_file):
   #Parsing - Library/Application\ Support/com.apple.backgroundtaskmanagementagent/backgrounditems.btm
-  
   plist_file = path
   loginApps = []
   plist = Foundation.NSDictionary.dictionaryWithContentsOfFile_(plist_file)
@@ -524,11 +532,13 @@ def getLoginItems(path,output_file):
   loginApps = list(loginApps)
   for item in loginApps:
     loginItems = {}
-    loginItems = parseApp(item)
-    loginItems.update({"module":"login_items"})
-    loginItems.update({"hostname":hostname})
-    json.dump(loginItems,output_file)
-    outfile.write("\n")
+    #if there are apps in Login Items, parse them.
+    if item:
+      loginItems = parseApp(item)
+      loginItems.update({"module":"login_items"})
+      loginItems.update({"hostname":hostname})
+      json.dump(loginItems,output_file)
+      outfile.write("\n")
 
 def getApps(path,output_file):
   app_lst = os.listdir(path)
