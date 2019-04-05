@@ -140,8 +140,8 @@ def parseAgentsDaemons(item,path):
   try:
     if plist_type == 'Apple binary property list':
       plist = Foundation.NSDictionary.dictionaryWithContentsOfFile_(plist_file)
-    elif plist_type == 'XML 1.0 document text, ASCII text':
-      plist = plistlib.readPlist(plist_file)
+    #elif plist_type == 'XML 1.0 document text, ASCII text':
+      #plist = plistlib.readPlist(plist_file)
     elif plist_type == 'exported SGML document text, ASCII text':
       plist_text = subprocess.Popen(["cat", plist_file], stdout=subprocess.PIPE).communicate()
       #plist_text = plist_text[0].split("\n")
@@ -156,8 +156,10 @@ def parseAgentsDaemons(item,path):
         plist = plistlib.readPlistFromString(plist_string)
     #if the plist does not match any of the other types then update the dictionary and return it with a error.
     else:
-      parsedPlist.update({'plist_format_error': ("Unknown plist type of "+plist_type+" for plist "+ plist_file)})
-      return parsedPlist
+      plist = plistlib.readPlist(plist_file)
+    #else:
+      #parsedPlist.update({'plist_format_error': ("Unknown plist type of "+plist_type+" for plist "+ plist_file)})
+      #return parsedPlist
   except:
       parsedPlist.update({'plist_format_error': ("Unknown plist type of "+plist_type+" for plist "+ plist_file)})
       return parsedPlist
@@ -288,7 +290,8 @@ def getFirefoxExtensions(path,output_file):
   except:
     return
   
-  extensions_path = profile_dump[profile_dump.find("Path="):profile_dump.find(".default")+8] 
+  #extensions_path = profile_dump[profile_dump.find("Path="):profile_dump.find(".default")+8] 
+  extensions_path = profile_dump[profile_dump.find("Path="):profile_dump.find("\\n")].split('\n')[0]
   extensions_path = extensions_path.split("=")[1]
 
   with open(path+extensions_path+"/extensions.json", 'r') as extensions:
@@ -409,11 +412,12 @@ def getEnv(output_file):
   for var in envVars:
     env = {}
     envValue = var.split("=")
-    env.update({envValue[0]:envValue[1]})
-    env.update({"module":"environment_variables"})
-    env.update({"hostname":hostname})
-    json.dump(env,output_file)
-    output_file.write("\n")
+    if len(envValue) > 1:
+      env.update({envValue[0]:envValue[1]})
+      env.update({"module":"environment_variables"})
+      env.update({"hostname":hostname})
+      json.dump(env,output_file)
+      output_file.write("\n")
 
 def getPeriodicScripts(output_file):
   periodic = {}
