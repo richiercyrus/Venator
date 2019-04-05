@@ -161,7 +161,9 @@ def parseAgentsDaemons(item,path):
       #parsedPlist.update({'plist_format_error': ("Unknown plist type of "+plist_type+" for plist "+ plist_file)})
       #return parsedPlist
   except:
-      parsedPlist.update({'plist_format_error': ("Unknown plist type of "+plist_type+" for plist "+ plist_file)})
+      parsedPlist.update({'path':plist_file})
+      parsedPlist.update({'plist_hash':getHash(plist_file)})
+      parsedPlist.update({'plist_format_error': ("Error parsing plist of type "+plist_type+" for plist "+ plist_file)})
       return parsedPlist
 
   progExecutableHash = ""
