@@ -146,20 +146,13 @@ def parseAgentsDaemons(item,path):
       plist_text = subprocess.Popen(["cat", plist_file], stdout=subprocess.PIPE).communicate()
       #plist_text = plist_text[0].split("\n")
       if plist_text[0].split("\n")[0].startswith("<?xml"):
-        #plist = plistlib.readPlist(plist_file)
         plist = plistlib.readPlistFromString(plist_text)
       else:
         xml_start = plist_text[0].find('<?xml')
         plist_string = plist_text[0][xml_start:]
-        #del plist_text[0]
-        #str1 = '\n'.join(plist_text)
         plist = plistlib.readPlistFromString(plist_string)
-    #if the plist does not match any of the other types then update the dictionary and return it with a error.
     else:
       plist = plistlib.readPlist(plist_file)
-    #else:
-      #parsedPlist.update({'plist_format_error': ("Unknown plist type of "+plist_type+" for plist "+ plist_file)})
-      #return parsedPlist
   except:
       parsedPlist.update({'path':plist_file})
       parsedPlist.update({'plist_hash':getHash(plist_file)})
