@@ -17,24 +17,26 @@ import ctypes
 import ctypes.util
 import objc
 import platform
+import time
 
 #get the hostname of the system the script is running on
 hostname = socket.gethostname()
 
 #get system information from the os
 def getSystemInfo(output_file):
-    system_data = {}
-    uname = os.uname()
-    macos_version = platform.mac_ver()[0]
-    macos_arch = platform.mac_ver()[2]
-    system_data.update({'hostname':uname[1]})
-    system_data.update({'kernel':uname[2]})
-    system_data.update({'kernel_release':uname[3].split(';')[1].split(':')[1]})
-    system_data.update({'macOS_version':macos_version})
-    system_data.update({'macOS_arch':macos_arch})
-    system_data.update({"module":"system_info"})
-    json.dump(system_data,output_file)
-    outfile.write("\n")
+  print("[+] Getting system information.")
+  system_data = {}
+  uname = os.uname()
+  macos_version = platform.mac_ver()[0]
+  macos_arch = platform.mac_ver()[2]
+  system_data.update({'hostname':uname[1]})
+  system_data.update({'kernel':uname[2]})
+  system_data.update({'kernel_release':uname[3].split(';')[1].split(':')[1]})
+  system_data.update({'macOS_version':macos_version})
+  system_data.update({'macOS_arch':macos_arch})
+  system_data.update({"module":"system_info"})
+  json.dump(system_data,output_file)
+  outfile.write("\n")
 
 # get the sha256 hash of any file
 def getHash(file):
@@ -195,6 +197,7 @@ def parseAgentsDaemons(item,path):
 
 def getLaunchAgents(path,output_file):
     #get all of the launch agents at a specififc location returned into a list
+    print("[+] Gathering Launch Agent data.")
     launchAgents = os.listdir(path)
     #for each of the launchAgents, parse the contents into a dictionary, add the name of the plist and the location to the dictionary
     for agent in launchAgents:
@@ -207,6 +210,7 @@ def getLaunchAgents(path,output_file):
       outfile.write("\n")
       
 def getLaunchDaemons(path,output_file):
+    print("[+] Gathering Launch Daemon data.")
     launchDaemons = os.listdir(path)
     #parsedDaemon = {}
     #for each of the launchAgents, parse the contents into a dictionary, add the name of the plist and the location to the dictionary
@@ -220,6 +224,7 @@ def getLaunchDaemons(path,output_file):
 
 #get a list of users on the system      
 def getUsers(output_file):
+    print("[+] Gathering users on the system.")
     users_dict = {}
     all_users = []
     #run command to get a list of all the users
@@ -239,6 +244,7 @@ def getUsers(output_file):
 #get all the safari extensions on the system
 def getSafariExtensions(path,output_file):
   #safariExtensions = {}
+  print("[+] Gathering Safari Extensions data.")
   extension = []
   plist_file = path+'/Extensions.plist'
   plist = Foundation.NSDictionary.dictionaryWithContentsOfFile_(plist_file)
@@ -256,6 +262,7 @@ def getSafariExtensions(path,output_file):
 
 #get all chrome extensions on the system
 def getChromeExtensions(path,output_file):
+  print("[+] Gathering Chrome Extensions data.")
   extensions_directories = os.listdir(path)
   for directory in extensions_directories:
     full_path = path+directory
@@ -279,6 +286,7 @@ def getChromeExtensions(path,output_file):
 
 #get all firefox extensions on the system
 def getFirefoxExtensions(path,output_file):
+  print("[+] Gathering Firefox Extensions data.")
   try:
     with open(path+"profiles.ini",'r') as profile_data:
       profile_dump = profile_data.read()
@@ -339,6 +347,7 @@ def getDownloads():
   return downloadedFiles
 
 def getInstallHistory(output_file):
+  print("[+] Gathering Install History data.")
   path = '/Library/Receipts/InstallHistory.plist'
   history = plistlib.readPlist(path)
   for item in history:
@@ -355,6 +364,7 @@ def getInstallHistory(output_file):
 
 def getCronJobs(users,output_file):
   #get all of the current users
+  print("[+] Gathering current cron jobs.")
   usercrons = {}
   for user in users:
     #results in a tuple
@@ -370,6 +380,7 @@ def getCronJobs(users,output_file):
   #return cronJobs
 
 def getEmond(output_file):
+  print("[+] Gathering Emond Rules.")
   emondRules = []
   allRules = {}
   for root, dirs, files in os.walk('/etc/emond.d/rules/', topdown=False):
@@ -384,6 +395,7 @@ def getEmond(output_file):
     output_file.write("\n")
 
 def getKext(sipStatus,kextPath,output_file):
+  print("[+] Gathering Kernel Extensions data.")
   kexts = os.listdir(kextPath)
   for kext in kexts:
     for root, dirs, files in os.walk(kextPath+"/"+kext, topdown=False):
@@ -403,6 +415,7 @@ def getKext(sipStatus,kextPath,output_file):
           output_file.write("\n")
 
 def getEnv(output_file):
+  print("[+] Gathering Environment Variables.")
   envVars = subprocess.Popen(["env"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT).communicate()[0].split('\n')
   for var in envVars:
     env = {}
@@ -415,6 +428,7 @@ def getEnv(output_file):
       output_file.write("\n")
 
 def getPeriodicScripts(output_file):
+  print("[+] Gathering Periodic Scripts.")
   periodic = {}
   periodicDirs = ['/etc/periodic/daily/','/etc/periodic/weekly/','/etc/periodic/monthly/']
   for item in periodicDirs:
@@ -433,6 +447,7 @@ def getStartupScripts():
   return True
 
 def getConnections(output_file):
+  print("[+] Gathering current network connections.")
   #get process listing with connections
   processes = subprocess.Popen(["lsof","-i"], stdout=subprocess.PIPE).communicate()[0].split('\n')
   lstofprcs = []
@@ -458,6 +473,7 @@ def getConnections(output_file):
     output_file.write("\n")
 
 def SIPStatus(output_file):
+  print("[+] Gathering System Intergrity Protection status.")
   sip = {}
   status = subprocess.Popen(["csrutil","status"], stdout=subprocess.PIPE).communicate()[0]
   status = status.strip('\n').strip(".").split(":")[1].strip(" ")
@@ -470,6 +486,7 @@ def SIPStatus(output_file):
   
 
 def GatekeeperStatus(output_file):
+  print("[+] Gathering Gatekeeper status.")
   gatekeeper = {}
   status = subprocess.Popen(["spctl","--status"], stdout=subprocess.PIPE).communicate()[0]
   gatekeeper.update({"gatekeeper_status":status})
@@ -512,6 +529,7 @@ def parseApp(app):
   return appInfo
 
 def getLoginItems(path,output_file):
+  print("[+] Gathering Login Items for each user.")
   #Parsing - Library/Application\ Support/com.apple.backgroundtaskmanagementagent/backgrounditems.btm
   plist_file = path
   loginApps = []
@@ -540,6 +558,7 @@ def getLoginItems(path,output_file):
       outfile.write("\n")
 
 def getApps(path,output_file):
+  print("[+] Gathering Applications for each user.")
   app_lst = os.listdir(path)
   for app in app_lst:
     apps = {}
@@ -551,6 +570,7 @@ def getApps(path,output_file):
     outfile.write("\n")
 
 def getEventTaps(output_file):
+  print("[+] Gathering installed Event Taps.")
   evInfo = Quartz.CGGetEventTapList(10,None,None)
   for item in evInfo[1]:
     eventTap = {}
@@ -569,6 +589,7 @@ def getEventTaps(output_file):
     outfile.write("\n")
   
 def getBashHistory(output_file, users):
+  print("[+] Gathering Bash History data.")
   userBashHistory = {}
   for user in users:
     history_file = '/Users/'+user+'/.bash_history'
@@ -585,6 +606,7 @@ def getBashHistory(output_file, users):
 
 
 if __name__ == '__main__':
+  script_start = time.time()
   output_list = []
   output = {}
   sipStatus = True
@@ -653,6 +675,15 @@ __     __               _
     
     #if SIP is disabled, check for items in /System directory
     if sipStatus == False:
+      print("[!!!!!] System Integrity Protection is disabled. Running additional data.")
       output_list.append(getLaunchAgents('/System/Library/LaunchAgents',outfile))
       output_list.append(getLaunchDaemons('/System/Library/LaunchDaemons',outfile))
       output_list.append(getKext(sipStatus,'/System/Library/Extensions',outfile))
+
+    count = len(open(outputPath).readlines(  ))
+
+
+    script_end = time.time()
+    total_time = script_end - script_start
+    print("[***] Venator collection completed in "+ str(total_time) +" seconds with " + str(count) + " records. Location of your output file:" + outputPath)
+  
