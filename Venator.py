@@ -74,8 +74,6 @@ def checkSignature(file, bundle=None):
   isApple = False
   authorities = []
   
-  #print Foundation.NSString.stringWithString_(file)
-	#file = Foundation.NSString.stringWithUTF8String_(file)
   file = Foundation.NSString.stringWithString_(file)
   file = file.stringByAddingPercentEscapesUsingEncoding_(Foundation.NSUTF8StringEncoding).encode('utf-8')
   path = Foundation.NSURL.URLWithString_(Foundation.NSString.stringWithUTF8String_(file))
@@ -203,7 +201,6 @@ def getLaunchAgents(path,output_file):
     for agent in launchAgents:
       parsedAgent = {}
       parsedAgent = parseAgentsDaemons(agent,path)
-      #print progExecutable
       parsedAgent.update({"module":"launch_agents"})
       parsedAgent.update({"hostname":hostname})
       json.dump(parsedAgent,output_file)
@@ -592,7 +589,7 @@ if __name__ == '__main__':
 
   outputFile = hostname
   outputDirectory = os.getcwd()
-  print(""" 
+  print('%s' % """ 
 __     __               _
 \ \   / /__ _ __   __ _| |_ ___  _ __
  \ \ / / _ \ '_ \ / _` | __/ _ \| '__|
