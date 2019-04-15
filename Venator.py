@@ -677,10 +677,10 @@ __     __               _
       output_list.append(getLaunchDaemons('/System/Library/LaunchDaemons',outfile))
       output_list.append(getKext(sipStatus,'/System/Library/Extensions',outfile))
 
-    count = len(open(outputPath).readlines(  ))
+    records_count = len(open(outputPath).readlines(  ))
 
 
     script_end = time.time()
     total_time = script_end - script_start
-    print("[***] Venator collection completed in "+ str(total_time)+ " seconds with "+ str(count)+ " records. Location of your output file:"+ outputPath)
+    print("[***] Venator collection completed in %s seconds with %s records. Location of your output file:%s" %  (str(total_time),str(records_count),outputPath))
   
