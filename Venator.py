@@ -672,7 +672,7 @@ __     __               _
     
     #if SIP is disabled, check for items in /System directory
     if sipStatus == False:
-      print("%s" % "[!!!!!] System Integrity Protection is disabled. Running additional data.")
+      print("%s" % "[!!!!!] System Integrity Protection is disabled. Gathering additional data launch agent/daemon data.")
       output_list.append(getLaunchAgents('/System/Library/LaunchAgents',outfile))
       output_list.append(getLaunchDaemons('/System/Library/LaunchDaemons',outfile))
       output_list.append(getKext(sipStatus,'/System/Library/Extensions',outfile))
