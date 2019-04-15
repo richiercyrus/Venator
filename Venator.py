@@ -42,10 +42,14 @@ def getSystemInfo(output_file):
 def getHash(file):
     import hashlib
     hasher = hashlib.sha256()
-    with open(file, 'rb') as afile:
-        buf = afile.read()
-        hasher.update(buf)
-    return(hasher.hexdigest())
+    if os.path.exists(file):
+        with open(file, 'rb') as afile:
+            buf = afile.read()
+            hasher.update(buf)
+            fileHash = hasher.hexdigest()
+    else:
+        fileHash = 'File Does Not exist.'
+    return(fileHash)
 
 #Code used from https://github.com/synack/knockknock/blob/master/knockknock.py - Patrick Wardle! - to get the signing information for a given executable
 def checkSignature(file, bundle=None): 
@@ -139,7 +143,7 @@ def parseAgentsDaemons(item,path):
   #if else the file is a binary plist, then we have to use external library to parse
   try:
     if plist_type == 'Apple binary property list':
-      plist = Foundation.NSDictionary.dictionaryWithContentsOfFile_(plist_file)
+        plist = Foundation.NSDictionary.dictionaryWithContentsOfFile_(plist_file)
     #elif plist_type == 'XML 1.0 document text, ASCII text':
       #plist = plistlib.readPlist(plist_file)
     elif plist_type == 'exported SGML document text, ASCII text':
@@ -154,9 +158,9 @@ def parseAgentsDaemons(item,path):
     else:
       plist = plistlib.readPlist(plist_file)
   except:
-      parsedPlist.update({'path':plist_file})
-      parsedPlist.update({'plist_hash':getHash(plist_file)})
-      parsedPlist.update({'plist_format_error': ("Error parsing plist of type "+plist_type+" for plist "+ plist_file)})
+      #parsedPlist.update({'path':plist_file})
+      #parsedPlist.update({'plist_hash':getHash(plist_file)})
+      parsedPlist.update({'plist_format_error': ("Error parsing %s with hash %s" % (plist_file,getHash(plist_file)))})
       return parsedPlist
 
   progExecutableHash = ""
