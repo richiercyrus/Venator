@@ -125,7 +125,7 @@ def checkSignature(file, bundle=None):
     signingInfo['status'] = "signed"
   else:
     signingInfo['status'] = "unsigned"
-  signingInfo['Apple binary'] = isApple
+  signingInfo['apple_binary'] = isApple
   signingInfo['Authority'] = authorities
   return (signingInfo)
 
