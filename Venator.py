@@ -136,7 +136,11 @@ def datetime_handler(x):
 def parseAgentsDaemons(item,path):
   parsedPlist = {}
   plist_file = path+"/"+item
-  plist_type = subprocess.Popen(["file", plist_file], stdout=subprocess.PIPE).communicate()
+  try:
+    plist_type = subprocess.Popen(["file", plist_file], stdout=subprocess.PIPE).communicate()
+  except:
+    parsedPlist.update({"Plist_file_error":"File does not exist or can not be accessed."})
+    return parsedPlist
   #get the plist type
   plist_type = plist_type[0].split(":")[1].strip("\n").strip(" ")
   #if else the file is a binary plist, then we have to use external library to parse
@@ -259,26 +263,27 @@ def getSafariExtensions(path,output_file):
 #get all chrome extensions on the system
 def getChromeExtensions(path,output_file):
   print("%s" % "[+] Gathering Chrome Extensions data.")
-  extensions_directories = os.listdir(path)
-  for directory in extensions_directories:
-    full_path = path+directory
-    for root, dirs, files in os.walk(full_path, topdown=False):
-     for name in files:
-       if name == "manifest.json":
-         with open(os.path.join(root,name),'r') as manifest:
-           manifest_dump = manifest.read()
-         manifest_json = json.loads(manifest_dump)
-         for field in manifest_json:
-           extensions = {}
-           if field == "name":
-             if manifest_json.get("name").startswith('__') == False:
-               extensions.update({"extension_directory_name":directory})
-               extensions.update({"extension_update_url":manifest_json.get("update_url").strip('u\'')})
-               extensions.update({"extension_name":manifest_json.get("name").strip('u\'')})
-               extensions.update({"module":"chrome_extensions"})
-               extensions.update({"hostname":hostname})
-               json.dump(extensions,output_file)
-               outfile.write("\n")
+  if os.path.exists(path):
+    extensions_directories = os.listdir(path)
+    for directory in extensions_directories:
+      full_path = path+directory
+      for root, dirs, files in os.walk(full_path, topdown=False):
+        for name in files:
+          if name == "manifest.json":
+            with open(os.path.join(root,name),'r') as manifest:
+              manifest_dump = manifest.read()
+            manifest_json = json.loads(manifest_dump)
+            for field in manifest_json:
+              extensions = {}
+              if field == "name":
+                if manifest_json.get("name").startswith('__') == False:
+                  extensions.update({"extension_directory_name":directory})
+                  extensions.update({"extension_update_url":manifest_json.get("update_url").strip('u\'')})
+                  extensions.update({"extension_name":manifest_json.get("name").strip('u\'')})
+                  extensions.update({"module":"chrome_extensions"})
+                  extensions.update({"hostname":hostname})
+                  json.dump(extensions,output_file)
+                  outfile.write("\n")
 
 #get all firefox extensions on the system
 def getFirefoxExtensions(path,output_file):
@@ -312,20 +317,6 @@ def getFirefoxExtensions(path,output_file):
     firefox_extensions.update({"hostname":hostname})        
     json.dump(firefox_extensions,output_file)
     outfile.write("\n")
-
-def getTmpFiles():
-  temporaryFiles = {}
-  tempFiles = {}
-  for root, dirs, files in os.walk('/tmp', topdown=False):
-    for name in files:
-      tmp = (os.path.join(root, name))
-      try:
-        tempFiles.update({tmp:getHash(tmp)})
-      except:
-        ""
-  temporaryFiles.update({'tmpFiles':tempFiles})
-  temporaryFiles.update({"hostname":hostname})
-  return temporaryFiles
 
 def getInstallHistory(output_file):
   print("%s" % "[+] Gathering Install History data.")
