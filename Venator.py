@@ -18,6 +18,7 @@ import ctypes.util
 import objc
 import platform
 import time
+import hashlib
 
 #get the hostname of the system the script is running on
 hostname = socket.gethostname()
@@ -40,7 +41,6 @@ def getSystemInfo(output_file):
 
 # get the sha256 hash of any file
 def getHash(file):
-    import hashlib
     hasher = hashlib.sha256()
     if os.path.exists(file):
         with open(file, 'rb') as afile:
@@ -132,7 +132,6 @@ def checkSignature(file, bundle=None):
 def datetime_handler(x):
     if isinstance(x, datetime.datetime):
         return x.isoformat()
-    #raise TypeError("Unknown type")
 
 def parseAgentsDaemons(item,path):
   parsedPlist = {}
@@ -158,8 +157,6 @@ def parseAgentsDaemons(item,path):
     else:
       plist = plistlib.readPlist(plist_file)
   except:
-      #parsedPlist.update({'path':plist_file})
-      #parsedPlist.update({'plist_hash':getHash(plist_file)})
       parsedPlist.update({'plist_format_error': ("Error parsing %s with hash %s" % (plist_file,getHash(plist_file)))})
       return parsedPlist
 
@@ -213,7 +210,6 @@ def getLaunchAgents(path,output_file):
 def getLaunchDaemons(path,output_file):
     print("%s" % "[+] Gathering Launch Daemon data.")
     launchDaemons = os.listdir(path)
-    #parsedDaemon = {}
     #for each of the launchAgents, parse the contents into a dictionary, add the name of the plist and the location to the dictionary
     for daemon in launchDaemons:
       parsedDaemon = {}
@@ -244,7 +240,6 @@ def getUsers(output_file):
 
 #get all the safari extensions on the system
 def getSafariExtensions(path,output_file):
-  #safariExtensions = {}
   print("%s" % "[+] Gathering Safari Extensions data.")
   extension = []
   plist_file = path+'/Extensions.plist'
@@ -293,8 +288,7 @@ def getFirefoxExtensions(path,output_file):
       profile_dump = profile_data.read()
   except:
     return
-  
-  #extensions_path = profile_dump[profile_dump.find("Path="):profile_dump.find(".default")+8] 
+   
   extensions_path = profile_dump[profile_dump.find("Path="):profile_dump.find("\\n")].split('\n')[0]
   extensions_path = extensions_path.split("=")[1]
 
@@ -333,20 +327,6 @@ def getTmpFiles():
   temporaryFiles.update({"hostname":hostname})
   return temporaryFiles
 
-def getDownloads():
-  downloadedFiles = {}
-  downloads = {}
-  for root, dirs, files in os.walk('/Users/casper/Downloads', topdown=False):
-    for name in files:
-      dwn_load = (os.path.join(root, name))
-      try:
-        downloads.update({dwn_load:getHash(dwn_load)})
-      except:
-        ""
-  downloadedFiles.update({'tmpFiles':downloads})
-  downloadedFiles.update({"hostname":hostname})
-  return downloadedFiles
-
 def getInstallHistory(output_file):
   print("%s" % "[+] Gathering Install History data.")
   path = '/Library/Receipts/InstallHistory.plist'
@@ -377,8 +357,6 @@ def getCronJobs(users,output_file):
     usercrons.update({"hostname":hostname})
     json.dump(usercrons,output_file)
     output_file.write("\n")
-  #cronJobs.update({"cronJobs":usercrons})
-  #return cronJobs
 
 def getEmond(output_file):
   print("%s" % "[+] Gathering Emond Rules.")
@@ -443,10 +421,6 @@ def getPeriodicScripts(output_file):
       json.dump(periodic,output_file)
       output_file.write("\n")
 
-def getStartupScripts():
-  #/Library/StartupItems and /System/Library/StartupItems
-  return True
-
 def getConnections(output_file):
   print("%s" % "[+] Gathering current network connections.")
   #get process listing with connections
@@ -505,7 +479,6 @@ def parseApp(app):
     plist = None
     if plist_type == 'Apple binary property list':
       plist = Foundation.NSDictionary.dictionaryWithContentsOfFile_(appPlist)
-      #elif (plist_type == 'XML 1.0 document text, ASCII text' or plist_type =='XML 1.0 document text, UTF-8 Unicode text'):
     elif "XML 1.0 document text" in plist_type:
       plist = plistlib.readPlist(appPlist)
     else:
