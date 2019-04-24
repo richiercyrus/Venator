@@ -550,11 +550,18 @@ def getApps(path,output_file):
   for app in app_lst:
     apps = {}
     app = path+"/"+app
-    apps = parseApp(app)
+    try:
+      apps = parseApp(app)
+    except:
+      apps.update({"app error":"issue parsing application information for app"+str(app)})
+      continue
+  
     apps.update({"module":"applications"})
     apps.update({"hostname":hostname})
     json.dump(apps,output_file)
     outfile.write("\n")
+    
+
 
 def getEventTaps(output_file):
   print("%s" % "[+] Gathering installed Event Taps.")
