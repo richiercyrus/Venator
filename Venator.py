@@ -372,13 +372,19 @@ def getKext(sipStatus,kextPath,output_file):
       for name in files:
         kextDict = {}
         if name == ("Info.plist"):
-          kextPlist = plistlib.readPlist(os.path.join(root, name))
-          kextDict.update({"CFBundleName":kextPlist.get("CFBundleName")})
-          kextDict.update({"CFBundleExecutable":kextPlist.get("CFBundleExecutable")})
-          kextDict.update({"CFBundleIdentifier":kextPlist.get("CFBundleIdentifier")})
-          kextDict.update({"OSBundleRequired":kextPlist.get("OSBundleRequired")})
-          kextDict.update({"CFBundleGetInfoString":kextPlist.get("CFBundleGetInfoString")})
-          kextDict.update({"kext_path":os.path.join(root, name)})
+          try:
+            kextPlist = plistlib.readPlist(os.path.join(root, name))
+          except:
+            kextDict.update({"Plist_parsing_error":"Unable to parse plist for "+kextPath})
+          
+          if (kextPlist):
+            kextDict.update({"CFBundleName":kextPlist.get("CFBundleName")})
+            kextDict.update({"CFBundleExecutable":kextPlist.get("CFBundleExecutable")})
+            kextDict.update({"CFBundleIdentifier":kextPlist.get("CFBundleIdentifier")})
+            kextDict.update({"OSBundleRequired":kextPlist.get("OSBundleRequired")})
+            kextDict.update({"CFBundleGetInfoString":kextPlist.get("CFBundleGetInfoString")})
+
+          kextDict.update({"kext_path":os.path.join(root, name)})  
           kextDict.update({"module":"kernel_extensions"})
           kextDict.update({"hostname":hostname})
           json.dump(kextDict,output_file)
