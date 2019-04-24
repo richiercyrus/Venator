@@ -396,9 +396,6 @@ def getKext(sipStatus,kextPath,output_file):
             kextDict.update({"OSBundleRequired":kextPlist.get("OSBundleRequired")})
             kextDict.update({"CFBundleGetInfoString":kextPlist.get("CFBundleGetInfoString")})
 
-          
-          
-
           kextDict.update({"kext_path":os.path.join(root, name)})  
           kextDict.update({"module":"kernel_extensions"})
           kextDict.update({"hostname":hostname})
