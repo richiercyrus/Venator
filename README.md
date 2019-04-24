@@ -1,6 +1,8 @@
 # Venator
 
-Venator is a python tool used for gathering data for the purpose of proactive macOS detection. Support for High Sierra & Mojave using native macOS python version (2.7.x). Happy Hunting!
+Venator is a python tool used for gathering data for the purpose of proactive macOS detection. Support for High Sierra & Mojave using native macOS python version (2.7.x). Happy Hunting! 
+
+***For High Sierra, you may need to specify /usr/bin/python at command line instead of "python."**
 
 ![](https://github.com/richiercyrus/Venator/blob/master/images/Screen%20Shot%202019-04-23%20at%209.29.32%20AM.png)
 ***Of note, S3 funtionality will be part of a upcoming release.**
