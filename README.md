@@ -2,6 +2,8 @@
 
 Venator is a python tool used for gathering data for the purpose of proactive macOS detection. Support for High Sierra & Mojave using native macOS python version (2.7.x). Happy Hunting! 
 
+Accompanying blog post: https://posts.specterops.io/introducing-venator-a-macos-tool-for-proactive-detection-34055a017e56
+
 ***For High Sierra, you may need to specify /usr/bin/python at command line instead of "python."**
 
 ![](https://github.com/richiercyrus/Venator/blob/master/images/Screen%20Shot%202019-04-23%20at%209.29.32%20AM.png)
