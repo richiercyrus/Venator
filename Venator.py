@@ -379,7 +379,11 @@ def getKext(sipStatus,kextPath,output_file):
           
           if (kextPlist):
             executable = kextPlist.get("CFBundleExecutable")
-            executable_path = kextPath+"/"+kext+"/Contents/MacOS/"+executable
+            if (executable):
+              executable_path = kextPath+"/"+kext+"/Contents/MacOS/"+executable
+            else:
+              executable = "None or Parsing Error"
+              executable_path = "None or Parsing Error"
 
             if os.path.exists(executable_path):
               kext_sig = checkSignature(executable_path,None)
