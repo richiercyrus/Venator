@@ -378,11 +378,26 @@ def getKext(sipStatus,kextPath,output_file):
             kextDict.update({"Plist_parsing_error":"Unable to parse plist for "+kextPath})
           
           if (kextPlist):
+            executable = kextPlist.get("CFBundleExecutable")
+            executable_path = kextPath+"/"+kext+"/Contents/MacOS/"+executable
+
+            if os.path.exists(executable_path):
+              kext_sig = checkSignature(executable_path,None)
+              kext_hash = getHash(executable_path)
+            else:
+              kext_sig = "Parsing Error"
+              kext_hash = "Parsing Error"
+            
             kextDict.update({"CFBundleName":kextPlist.get("CFBundleName")})
-            kextDict.update({"CFBundleExecutable":kextPlist.get("CFBundleExecutable")})
+            kextDict.update({"CFBundleExecutable":executable})
+            kextDict.update({"CFBundleExecutable_signature":kext_sig})
+            kextDict.update({"CFBundleExecutable_hash":kext_hash})
             kextDict.update({"CFBundleIdentifier":kextPlist.get("CFBundleIdentifier")})
             kextDict.update({"OSBundleRequired":kextPlist.get("OSBundleRequired")})
             kextDict.update({"CFBundleGetInfoString":kextPlist.get("CFBundleGetInfoString")})
+
+          
+          
 
           kextDict.update({"kext_path":os.path.join(root, name)})  
           kextDict.update({"module":"kernel_extensions"})
