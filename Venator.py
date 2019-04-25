@@ -191,9 +191,10 @@ def parseAgentsDaemons(item,path):
     parsedPlist.update({'label': str(plist.get("Label"))})
     parsedPlist.update({'program': str(plist.get("Program"))})
     parsedPlist.update({'program_arguments': (str(plist.get("ProgramArguments"))).strip("[").strip("]")})
-    parsedPlist.update({"signing_info":checkSignature(progExecutable)})
-    parsedPlist.update({'hash':progExecutableHash}) 
-    parsedPlist.update({'executable':progExecutable})
+    if os.path.exists(progExecutable):
+      parsedPlist.update({'hash':progExecutableHash}) 
+      parsedPlist.update({'executable':progExecutable})
+      parsedPlist.update({"signing_info":checkSignature(progExecutable)})
     parsedPlist.update({'plist_hash':getHash(plist_file)})
     parsedPlist.update({'path':plist_file})
     return parsedPlist
