@@ -165,6 +165,7 @@ def parseAgentsDaemons(item,path):
       return parsedPlist
 
   progExecutableHash = ""
+  progExecutable = ""
   try:
     if plist.get("ProgramArguments"):
       progExecutable = plist.get("ProgramArguments")[0]
