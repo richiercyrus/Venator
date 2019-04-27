@@ -601,6 +601,34 @@ def getBashHistory(output_file, users):
       json.dump(userBashHistory,output_file)
       outfile.write("\n")
 
+def getShellStartupScripts(users, output_file):
+  # Get any user profile scripts. These scripts are run every time a shell is launched by a user.
+  # A malicious actor can add a backdoor script into these files, then either wait for the
+  # user to logon, or launch a shell using an innocuous cronjob, etc.
+  print("[+] Gathering any shell startup scripts ('~/.bash_profile', etc.)")
+  startup_files = [
+    "/Users/%s/.bash_profile",  # This is the typical one that exists on OSX
+    "/Users/%s/.bashrc",        # This is the linux standard, but may still exist
+    "/Users/%s/.profile"        # Mac OS X Yosemite might have this one according to SO
+  ]
+  for user in users:
+    for startup_file in startup_files:
+      startup_filename = startup_file % users
+      if os.path.isfile(startup_filename):
+        with open(startup_filename, "r") as f:
+          startup_data = f.read().split('\n')
+
+        # Add to output file
+        users_script = {
+          "user": user,
+          "hostname": hostname,
+          "module": "shell_startup",
+          "shell_startup_filename": startup_filename,
+          "shell_startup_data": startup_data
+        }
+        json.dump(users_script,output_file, sort_keys=True)
+        output_file.write("\n")
+
 
 if __name__ == '__main__':
   script_start = time.time()
@@ -639,7 +667,7 @@ __     __               _
 
   
     modules = [getSystemInfo(outfile),getInstallHistory(outfile),GatekeeperStatus(outfile),getConnections(outfile),
-    getEnv(outfile),getPeriodicScripts(outfile), getCronJobs(lst_of_users,outfile),getEmond(outfile),getLaunchAgents('/Library/LaunchAgents',outfile),
+    getEnv(outfile),getPeriodicScripts(outfile), getCronJobs(lst_of_users,outfile),getEmond(outfile),getLaunchAgents('/Library/LaunchAgents',outfile),getShellStartupScripts(lst_of_users,outfile),
     getLaunchDaemons('/Library/LaunchDaemons',outfile),getKext(sipStatus,'/Library/Extensions',outfile),getApps('/Applications',outfile),getEventTaps(outfile),getBashHistory(outfile,lst_of_users)]
 
     for module in modules:
