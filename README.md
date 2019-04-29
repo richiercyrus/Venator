@@ -1,9 +1,13 @@
 # Venator
 
-Venator is a python tool used for gathering data for the purpose of proactive macOS detection. Support for High Sierra & Mojave using native macOS python version (2.7.x). Happy Hunting!
+Venator is a python tool used for gathering data for the purpose of proactive macOS detection. Support for High Sierra & Mojave using native macOS python version (2.7.x). Happy Hunting! 
 
-![](https://github.com/richiercyrus/Venator/blob/development/images/Screen%20Shot%202019-03-30%20at%202.01.47%20PM.png)
-`Of note, S3 funtionality will be part of a upcoming release.`
+Accompanying blog post: https://posts.specterops.io/introducing-venator-a-macos-tool-for-proactive-detection-34055a017e56
+
+***You may need to specify `/usr/bin/python` at command line instead of "python." if you have alternative versions of python installed.**
+
+![](https://github.com/richiercyrus/Venator/blob/master/images/Screen%20Shot%202019-04-26%20at%203.51.35%20PM.png)
+***Of note, S3 funtionality will be part of a upcoming release.**
 
 **The script needs root permissions to run, or else you will get the error message below.**
 ![](https://github.com/richiercyrus/Venator/blob/development/images/Screen%20Shot%202019-03-30%20at%201.59.31%20PM.png)
@@ -138,3 +142,9 @@ Below are the Venator modules and the data each module contains. Once the script
 * user
 * bash_commands
 * hostname
+
+`shell_startup`: 
+* user
+* hostname
+* shell_startup_filename
+* shell_startup_data

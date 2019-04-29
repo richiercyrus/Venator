@@ -1,3 +1,4 @@
+#!/usr/bin/python
 import os
 import datetime
 import logging
@@ -18,6 +19,7 @@ import ctypes.util
 import objc
 import platform
 import time
+import hashlib
 
 #get the hostname of the system the script is running on
 hostname = socket.gethostname()
@@ -40,12 +42,15 @@ def getSystemInfo(output_file):
 
 # get the sha256 hash of any file
 def getHash(file):
-    import hashlib
     hasher = hashlib.sha256()
-    with open(file, 'rb') as afile:
-        buf = afile.read()
-        hasher.update(buf)
-    return(hasher.hexdigest())
+    if os.path.exists(file):
+        with open(file, 'rb') as afile:
+            buf = afile.read()
+            hasher.update(buf)
+            fileHash = hasher.hexdigest()
+    else:
+        fileHash = 'File Does Not exist.'
+    return(fileHash)
 
 #Code used from https://github.com/synack/knockknock/blob/master/knockknock.py - Patrick Wardle! - to get the signing information for a given executable
 def checkSignature(file, bundle=None): 
@@ -121,25 +126,28 @@ def checkSignature(file, bundle=None):
     signingInfo['status'] = "signed"
   else:
     signingInfo['status'] = "unsigned"
-  signingInfo['Apple binary'] = isApple
+  signingInfo['apple_binary'] = isApple
   signingInfo['Authority'] = authorities
   return (signingInfo)
 
 def datetime_handler(x):
     if isinstance(x, datetime.datetime):
         return x.isoformat()
-    #raise TypeError("Unknown type")
 
 def parseAgentsDaemons(item,path):
   parsedPlist = {}
   plist_file = path+"/"+item
-  plist_type = subprocess.Popen(["file", plist_file], stdout=subprocess.PIPE).communicate()
+  try:
+    plist_type = subprocess.Popen(["file", plist_file], stdout=subprocess.PIPE).communicate()
+  except:
+    parsedPlist.update({"Plist_file_error":"File does not exist or can not be accessed."})
+    return parsedPlist
   #get the plist type
   plist_type = plist_type[0].split(":")[1].strip("\n").strip(" ")
   #if else the file is a binary plist, then we have to use external library to parse
   try:
     if plist_type == 'Apple binary property list':
-      plist = Foundation.NSDictionary.dictionaryWithContentsOfFile_(plist_file)
+        plist = Foundation.NSDictionary.dictionaryWithContentsOfFile_(plist_file)
     #elif plist_type == 'XML 1.0 document text, ASCII text':
       #plist = plistlib.readPlist(plist_file)
     elif plist_type == 'exported SGML document text, ASCII text':
@@ -154,12 +162,11 @@ def parseAgentsDaemons(item,path):
     else:
       plist = plistlib.readPlist(plist_file)
   except:
-      parsedPlist.update({'path':plist_file})
-      parsedPlist.update({'plist_hash':getHash(plist_file)})
-      parsedPlist.update({'plist_format_error': ("Error parsing plist of type "+plist_type+" for plist "+ plist_file)})
+      parsedPlist.update({'plist_format_error': ("Error parsing %s with hash %s" % (plist_file,getHash(plist_file)))})
       return parsedPlist
 
   progExecutableHash = ""
+  progExecutable = ""
   try:
     if plist.get("ProgramArguments"):
       progExecutable = plist.get("ProgramArguments")[0]
@@ -186,9 +193,10 @@ def parseAgentsDaemons(item,path):
     parsedPlist.update({'label': str(plist.get("Label"))})
     parsedPlist.update({'program': str(plist.get("Program"))})
     parsedPlist.update({'program_arguments': (str(plist.get("ProgramArguments"))).strip("[").strip("]")})
-    parsedPlist.update({"signing_info":checkSignature(progExecutable)})
-    parsedPlist.update({'hash':progExecutableHash}) 
-    parsedPlist.update({'executable':progExecutable})
+    if os.path.exists(progExecutable):
+      parsedPlist.update({'hash':progExecutableHash}) 
+      parsedPlist.update({'executable':progExecutable})
+      parsedPlist.update({"signing_info":checkSignature(progExecutable)})
     parsedPlist.update({'plist_hash':getHash(plist_file)})
     parsedPlist.update({'path':plist_file})
     return parsedPlist
@@ -209,7 +217,6 @@ def getLaunchAgents(path,output_file):
 def getLaunchDaemons(path,output_file):
     print("%s" % "[+] Gathering Launch Daemon data.")
     launchDaemons = os.listdir(path)
-    #parsedDaemon = {}
     #for each of the launchAgents, parse the contents into a dictionary, add the name of the plist and the location to the dictionary
     for daemon in launchDaemons:
       parsedDaemon = {}
@@ -240,7 +247,6 @@ def getUsers(output_file):
 
 #get all the safari extensions on the system
 def getSafariExtensions(path,output_file):
-  #safariExtensions = {}
   print("%s" % "[+] Gathering Safari Extensions data.")
   extension = []
   plist_file = path+'/Extensions.plist'
@@ -260,26 +266,27 @@ def getSafariExtensions(path,output_file):
 #get all chrome extensions on the system
 def getChromeExtensions(path,output_file):
   print("%s" % "[+] Gathering Chrome Extensions data.")
-  extensions_directories = os.listdir(path)
-  for directory in extensions_directories:
-    full_path = path+directory
-    for root, dirs, files in os.walk(full_path, topdown=False):
-     for name in files:
-       if name == "manifest.json":
-         with open(os.path.join(root,name),'r') as manifest:
-           manifest_dump = manifest.read()
-         manifest_json = json.loads(manifest_dump)
-         for field in manifest_json:
-           extensions = {}
-           if field == "name":
-             if manifest_json.get("name").startswith('__') == False:
-               extensions.update({"extension_directory_name":directory})
-               extensions.update({"extension_update_url":manifest_json.get("update_url").strip('u\'')})
-               extensions.update({"extension_name":manifest_json.get("name").strip('u\'')})
-               extensions.update({"module":"chrome_extensions"})
-               extensions.update({"hostname":hostname})
-               json.dump(extensions,output_file)
-               outfile.write("\n")
+  if os.path.exists(path):
+    extensions_directories = os.listdir(path)
+    for directory in extensions_directories:
+      full_path = path+directory
+      for root, dirs, files in os.walk(full_path, topdown=False):
+        for name in files:
+          if name == "manifest.json":
+            with open(os.path.join(root,name),'r') as manifest:
+              manifest_dump = manifest.read()
+            manifest_json = json.loads(manifest_dump)
+            for field in manifest_json:
+              extensions = {}
+              if field == "name":
+                if manifest_json.get("name").startswith('__') == False:
+                  extensions.update({"extension_directory_name":directory})
+                  extensions.update({"extension_update_url":manifest_json.get("update_url").strip('u\'')})
+                  extensions.update({"extension_name":manifest_json.get("name").strip('u\'')})
+                  extensions.update({"module":"chrome_extensions"})
+                  extensions.update({"hostname":hostname})
+                  json.dump(extensions,output_file)
+                  outfile.write("\n")
 
 #get all firefox extensions on the system
 def getFirefoxExtensions(path,output_file):
@@ -289,8 +296,7 @@ def getFirefoxExtensions(path,output_file):
       profile_dump = profile_data.read()
   except:
     return
-  
-  #extensions_path = profile_dump[profile_dump.find("Path="):profile_dump.find(".default")+8] 
+   
   extensions_path = profile_dump[profile_dump.find("Path="):profile_dump.find("\\n")].split('\n')[0]
   extensions_path = extensions_path.split("=")[1]
 
@@ -314,34 +320,6 @@ def getFirefoxExtensions(path,output_file):
     firefox_extensions.update({"hostname":hostname})        
     json.dump(firefox_extensions,output_file)
     outfile.write("\n")
-
-def getTmpFiles():
-  temporaryFiles = {}
-  tempFiles = {}
-  for root, dirs, files in os.walk('/tmp', topdown=False):
-    for name in files:
-      tmp = (os.path.join(root, name))
-      try:
-        tempFiles.update({tmp:getHash(tmp)})
-      except:
-        ""
-  temporaryFiles.update({'tmpFiles':tempFiles})
-  temporaryFiles.update({"hostname":hostname})
-  return temporaryFiles
-
-def getDownloads():
-  downloadedFiles = {}
-  downloads = {}
-  for root, dirs, files in os.walk('/Users/casper/Downloads', topdown=False):
-    for name in files:
-      dwn_load = (os.path.join(root, name))
-      try:
-        downloads.update({dwn_load:getHash(dwn_load)})
-      except:
-        ""
-  downloadedFiles.update({'tmpFiles':downloads})
-  downloadedFiles.update({"hostname":hostname})
-  return downloadedFiles
 
 def getInstallHistory(output_file):
   print("%s" % "[+] Gathering Install History data.")
@@ -373,8 +351,6 @@ def getCronJobs(users,output_file):
     usercrons.update({"hostname":hostname})
     json.dump(usercrons,output_file)
     output_file.write("\n")
-  #cronJobs.update({"cronJobs":usercrons})
-  #return cronJobs
 
 def getEmond(output_file):
   print("%s" % "[+] Gathering Emond Rules.")
@@ -399,13 +375,35 @@ def getKext(sipStatus,kextPath,output_file):
       for name in files:
         kextDict = {}
         if name == ("Info.plist"):
-          kextPlist = plistlib.readPlist(os.path.join(root, name))
-          kextDict.update({"CFBundleName":kextPlist.get("CFBundleName")})
-          kextDict.update({"CFBundleExecutable":kextPlist.get("CFBundleExecutable")})
-          kextDict.update({"CFBundleIdentifier":kextPlist.get("CFBundleIdentifier")})
-          kextDict.update({"OSBundleRequired":kextPlist.get("OSBundleRequired")})
-          kextDict.update({"CFBundleGetInfoString":kextPlist.get("CFBundleGetInfoString")})
-          kextDict.update({"kext_path":os.path.join(root, name)})
+          try:
+            kextPlist = plistlib.readPlist(os.path.join(root, name))
+          except:
+            kextDict.update({"Plist_parsing_error":"Unable to parse plist for "+kextPath})
+          
+          if (kextPlist):
+            executable = kextPlist.get("CFBundleExecutable")
+            if (executable):
+              executable_path = kextPath+"/"+kext+"/Contents/MacOS/"+executable
+            else:
+              executable = "None or Parsing Error"
+              executable_path = "None or Parsing Error"
+
+            if os.path.exists(executable_path):
+              kext_sig = checkSignature(executable_path,None)
+              kext_hash = getHash(executable_path)
+            else:
+              kext_sig = "Parsing Error"
+              kext_hash = "Parsing Error"
+            
+            kextDict.update({"CFBundleName":kextPlist.get("CFBundleName")})
+            kextDict.update({"CFBundleExecutable":executable})
+            kextDict.update({"CFBundleExecutable_signature":kext_sig})
+            kextDict.update({"CFBundleExecutable_hash":kext_hash})
+            kextDict.update({"CFBundleIdentifier":kextPlist.get("CFBundleIdentifier")})
+            kextDict.update({"OSBundleRequired":kextPlist.get("OSBundleRequired")})
+            kextDict.update({"CFBundleGetInfoString":kextPlist.get("CFBundleGetInfoString")})
+
+          kextDict.update({"kext_path":os.path.join(root, name)})  
           kextDict.update({"module":"kernel_extensions"})
           kextDict.update({"hostname":hostname})
           json.dump(kextDict,output_file)
@@ -438,10 +436,6 @@ def getPeriodicScripts(output_file):
       periodic.update({"hostname":hostname})
       json.dump(periodic,output_file)
       output_file.write("\n")
-
-def getStartupScripts():
-  #/Library/StartupItems and /System/Library/StartupItems
-  return True
 
 def getConnections(output_file):
   print("%s" % "[+] Gathering current network connections.")
@@ -501,7 +495,6 @@ def parseApp(app):
     plist = None
     if plist_type == 'Apple binary property list':
       plist = Foundation.NSDictionary.dictionaryWithContentsOfFile_(appPlist)
-      #elif (plist_type == 'XML 1.0 document text, ASCII text' or plist_type =='XML 1.0 document text, UTF-8 Unicode text'):
     elif "XML 1.0 document text" in plist_type:
       plist = plistlib.readPlist(appPlist)
     else:
@@ -560,11 +553,18 @@ def getApps(path,output_file):
   for app in app_lst:
     apps = {}
     app = path+"/"+app
-    apps = parseApp(app)
+    try:
+      apps = parseApp(app)
+    except:
+      apps.update({"app error":"issue parsing application information for app"+str(app)})
+      continue
+  
     apps.update({"module":"applications"})
     apps.update({"hostname":hostname})
     json.dump(apps,output_file)
     outfile.write("\n")
+    
+
 
 def getEventTaps(output_file):
   print("%s" % "[+] Gathering installed Event Taps.")
@@ -600,6 +600,34 @@ def getBashHistory(output_file, users):
       userBashHistory.update({"module":"bash_history"})
       json.dump(userBashHistory,output_file)
       outfile.write("\n")
+
+def getShellStartupScripts(users, output_file):
+  # Get any user profile scripts. These scripts are run every time a shell is launched by a user.
+  # A malicious actor can add a backdoor script into these files, then either wait for the
+  # user to logon, or launch a shell using an innocuous cronjob, etc.
+  print("[+] Gathering any shell startup scripts ('~/.bash_profile', etc.)")
+  startup_files = [
+    "/Users/%s/.bash_profile",  # This is the typical one that exists on OSX
+    "/Users/%s/.bashrc",        # This is the linux standard, but may still exist
+    "/Users/%s/.profile"        # Mac OS X Yosemite might have this one according to SO
+  ]
+  for user in users:
+    for startup_file in startup_files:
+      startup_filename = startup_file % users
+      if os.path.isfile(startup_filename):
+        with open(startup_filename, "r") as f:
+          startup_data = f.read().split('\n')
+
+        # Add to output file
+        users_script = {
+          "user": user,
+          "hostname": hostname,
+          "module": "shell_startup",
+          "shell_startup_filename": startup_filename,
+          "shell_startup_data": startup_data
+        }
+        json.dump(users_script,output_file, sort_keys=True)
+        output_file.write("\n")
 
 
 if __name__ == '__main__':
@@ -639,7 +667,7 @@ __     __               _
 
   
     modules = [getSystemInfo(outfile),getInstallHistory(outfile),GatekeeperStatus(outfile),getConnections(outfile),
-    getEnv(outfile),getPeriodicScripts(outfile), getCronJobs(lst_of_users,outfile),getEmond(outfile),getLaunchAgents('/Library/LaunchAgents',outfile),
+    getEnv(outfile),getPeriodicScripts(outfile), getCronJobs(lst_of_users,outfile),getEmond(outfile),getLaunchAgents('/Library/LaunchAgents',outfile),getShellStartupScripts(lst_of_users,outfile),
     getLaunchDaemons('/Library/LaunchDaemons',outfile),getKext(sipStatus,'/Library/Extensions',outfile),getApps('/Applications',outfile),getEventTaps(outfile),getBashHistory(outfile,lst_of_users)]
 
     for module in modules:
