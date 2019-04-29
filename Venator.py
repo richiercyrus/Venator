@@ -24,6 +24,24 @@ import hashlib
 #get the hostname of the system the script is running on
 hostname = socket.gethostname()
 
+#get UUID - https://apple.stackexchange.com/questions/72355/how-to-get-uuid-with-python/72360#72360
+def getUUID():
+  from Foundation import NSBundle 
+  IOKit_bundle = NSBundle.bundleWithIdentifier_('com.apple.framework.IOKit')
+  functions = [("IOServiceGetMatchingService", b"II@"),
+             ("IOServiceMatching", b"@*"),
+             ("IORegistryEntryCreateCFProperty", b"@I@@I"),
+            ]          
+  objc.loadBundleFunctions(IOKit_bundle, globals(), functions)
+  def io_key(keyname):
+    return IORegistryEntryCreateCFProperty(IOServiceGetMatchingService(0, IOServiceMatching("IOPlatformExpertDevice".encode("utf-8"))), keyname, None, 0)
+  
+  #return the system's unique identifier
+  return str(io_key("IOPlatformUUID".encode("utf-8")))
+
+#uuid saved to variable
+UUID = getUUID()
+
 #get system information from the os
 def getSystemInfo(output_file):
   print("%s" % "[+] Getting system information.")
@@ -32,6 +50,7 @@ def getSystemInfo(output_file):
   macos_version = platform.mac_ver()[0]
   macos_arch = platform.mac_ver()[2]
   system_data.update({'hostname':uname[1]})
+  system_data.update({'UUID':UUID})
   system_data.update({'kernel':uname[2]})
   system_data.update({'kernel_release':uname[3].split(';')[1].split(':')[1]})
   system_data.update({'macOS_version':macos_version})
@@ -211,6 +230,7 @@ def getLaunchAgents(path,output_file):
       parsedAgent = parseAgentsDaemons(agent,path)
       parsedAgent.update({"module":"launch_agents"})
       parsedAgent.update({"hostname":hostname})
+      parsedAgent.update({"UUID":UUID})
       json.dump(parsedAgent,output_file)
       outfile.write("\n")
       
@@ -223,6 +243,7 @@ def getLaunchDaemons(path,output_file):
       parsedDaemon = parseAgentsDaemons(daemon,path)
       parsedDaemon.update({"module":"launch_daemons"})
       parsedDaemon.update({"hostname":hostname})
+      parsedDaemon.update({"UUID":UUID})
       json.dump(parsedDaemon,output_file)
       outfile.write("\n") 
 
@@ -241,6 +262,7 @@ def getUsers(output_file):
     users_dict.update({'users': all_users})
     users_dict.update({"module":"users"})
     users_dict.update({"hostname":hostname})
+    users_dict.update({"UUID":UUID})
     json.dump(users_dict,output_file)
     outfile.write("\n")
     return users_dict
@@ -260,6 +282,7 @@ def getSafariExtensions(path,output_file):
       safariExtensions.update({'developer_identifier':ext.get("Developer Identifier")})
       safariExtensions.update({'extension_path':plist_file})
       safariExtensions.update({"hostname":hostname})
+      safariExtensions.update({"UUID":UUID})
       json.dump(safariExtensions,output_file)
       outfile.write("\n")
 
@@ -285,6 +308,7 @@ def getChromeExtensions(path,output_file):
                   extensions.update({"extension_name":manifest_json.get("name").strip('u\'')})
                   extensions.update({"module":"chrome_extensions"})
                   extensions.update({"hostname":hostname})
+                  extensions.update({"UUID":UUID})
                   json.dump(extensions,output_file)
                   outfile.write("\n")
 
@@ -317,7 +341,8 @@ def getFirefoxExtensions(path,output_file):
     firefox_extensions.update({"extension_creator": field.get("defaultLocale").get("creator")})
     firefox_extensions.update({"extension_homepage_url": field.get("defaultLocale").get("homepageURL")})
     firefox_extensions.update({"module":"firefox_extensions"})
-    firefox_extensions.update({"hostname":hostname})        
+    firefox_extensions.update({"hostname":hostname})
+    firefox_extensions.update({"UUID":UUID})      
     json.dump(firefox_extensions,output_file)
     outfile.write("\n")
 
@@ -333,6 +358,7 @@ def getInstallHistory(output_file):
     installList.update({"package_identifier":tempdict.get('packageIdentifiers')})
     installList.update({"module":"install_history"})
     installList.update({"hostname":hostname})
+    installList.update({"UUID":UUID})
     json.dump(installList,output_file,default=datetime_handler,encoding='latin1')
     output_file.write("\n")
     
@@ -349,6 +375,7 @@ def getCronJobs(users,output_file):
     usercrons.update({"crontab":users_crontab})
     usercrons.update({"module":"cron_jobs"})
     usercrons.update({"hostname":hostname})
+    usercrons.update({"UUID":UUID})
     json.dump(usercrons,output_file)
     output_file.write("\n")
 
@@ -364,6 +391,7 @@ def getEmond(output_file):
     allRules.update({"rule":rule})
     allRules.update({"module":"emond_rules"})
     allRules.update({"hostname":hostname})
+    allRules.update({"UUID":UUID})
     json.dump(allRules,output_file)
     output_file.write("\n")
 
@@ -406,6 +434,7 @@ def getKext(sipStatus,kextPath,output_file):
           kextDict.update({"kext_path":os.path.join(root, name)})  
           kextDict.update({"module":"kernel_extensions"})
           kextDict.update({"hostname":hostname})
+          kextDict.update({"UUID":UUID})
           json.dump(kextDict,output_file)
           output_file.write("\n")
 
@@ -419,6 +448,7 @@ def getEnv(output_file):
       env.update({envValue[0]:envValue[1]})
       env.update({"module":"environment_variables"})
       env.update({"hostname":hostname})
+      env.update({"UUID":UUID})
       json.dump(env,output_file)
       output_file.write("\n")
 
@@ -434,6 +464,7 @@ def getPeriodicScripts(output_file):
       periodic.update({item:periodicLst})
       periodic.update({"module":"periodic_scripts"})
       periodic.update({"hostname":hostname})
+      periodic.update({"UUID":UUID})
       json.dump(periodic,output_file)
       output_file.write("\n")
 
@@ -460,6 +491,7 @@ def getConnections(output_file):
     connections.update({"connection_flow":process[8]})
     connections.update({"module":"established_connections"})
     connections.update({"hostname":hostname})
+    connections.update({"UUID":UUID})
     json.dump(connections,output_file)
     output_file.write("\n")
 
@@ -471,6 +503,7 @@ def SIPStatus(output_file):
   sip.update({"sip_status":status})
   sip.update({"module":"system_intergrity_protection"})
   sip.update({"hostname":hostname})
+  sip.update({"UUID":UUID})
   json.dump(sip,output_file)
   outfile.write("\n")
   return sip
@@ -483,6 +516,7 @@ def GatekeeperStatus(output_file):
   gatekeeper.update({"gatekeeper_status":status})
   gatekeeper.update({"module":"gatekeeper_status"})
   gatekeeper.update({"hostname":hostname})
+  gatekeeper.update({"UUID":UUID})
   json.dump(gatekeeper,output_file)
   outfile.write("\n")
 
@@ -544,6 +578,7 @@ def getLoginItems(path,output_file):
       loginItems = parseApp(item)
       loginItems.update({"module":"login_items"})
       loginItems.update({"hostname":hostname})
+      loginItems.update({"UUID":UUID})
       json.dump(loginItems,output_file)
       outfile.write("\n")
 
@@ -561,6 +596,7 @@ def getApps(path,output_file):
   
     apps.update({"module":"applications"})
     apps.update({"hostname":hostname})
+    apps.update({"UUID":UUID})
     json.dump(apps,output_file)
     outfile.write("\n")
     
@@ -577,6 +613,7 @@ def getEventTaps(output_file):
     tappingProcName = subprocess.Popen(["ps", "-p", tappingProcess, "-o", "comm="], stdout=subprocess.PIPE).communicate()[0]
     eventTap.update({"eventTapID":eTap[1].split("=")[1]})
     eventTap.update({"hostname":hostname})
+    eventTap.update({"UUID":UUID})
     eventTap.update({"tapping_process_id":tappingProcess})
     eventTap.update({"tapping_process_name":tappingProcName})
     eventTap.update({"tapped_process_id":tappedProcess})
@@ -596,6 +633,7 @@ def getBashHistory(output_file, users):
       history_data = history_data.split('\n')
       userBashHistory.update({"user":user})
       userBashHistory.update({"hostname":hostname})
+      userBashHistory.update({"UUID":UUID})
       userBashHistory.update({"bash_commands":history_data})
       userBashHistory.update({"module":"bash_history"})
       json.dump(userBashHistory,output_file)
@@ -622,6 +660,7 @@ def getShellStartupScripts(users, output_file):
         users_script = {
           "user": user,
           "hostname": hostname,
+          "UUID": UUID,
           "module": "shell_startup",
           "shell_startup_filename": startup_filename,
           "shell_startup_data": startup_data
