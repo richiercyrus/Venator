@@ -142,3 +142,9 @@ Below are the Venator modules and the data each module contains. Once the script
 * user
 * bash_commands
 * hostname
+
+`shell_startup`: 
+* user
+* hostname
+* shell_startup_filename
+* shell_startup_data
