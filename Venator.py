@@ -62,13 +62,13 @@ def getSystemInfo(output_file):
 # get the sha256 hash of any file
 def getHash(file):
     hasher = hashlib.sha256()
-    if os.path.exists(file):
+    if os.path.exists(file) and os.path.isfile(file):
         with open(file, 'rb') as afile:
             buf = afile.read()
             hasher.update(buf)
             fileHash = hasher.hexdigest()
     else:
-        fileHash = 'File Does Not exist.'
+        fileHash = "File is a directory or doesn't exist"
     return(fileHash)
 
 #Code used from https://github.com/synack/knockknock/blob/master/knockknock.py - Patrick Wardle! - to get the signing information for a given executable
