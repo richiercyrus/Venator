@@ -1,3 +1,4 @@
+<p align="center"> 
 <img src="https://github.com/richiercyrus/Venator/blob/master/images/venator4%20copy.png">
 </p>
 
