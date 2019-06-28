@@ -1,8 +1,8 @@
-<p align="center"> 
+<p align="center">
 <img src="https://github.com/richiercyrus/Venator/blob/master/images/venator4%20copy.png">
 </p>
 
-Venator is a python tool used for gathering data for the purpose of proactive macOS detection. Support for High Sierra & Mojave using native macOS python version (2.7.x). Happy Hunting! 
+Venator is a python tool used for gathering data for the purpose of proactive macOS detection. Support for High Sierra & Mojave using native macOS python version (2.7.x). Happy Hunting!
 
 Accompanying blog post: https://posts.specterops.io/introducing-venator-a-macos-tool-for-proactive-detection-34055a017e56
 
@@ -19,12 +19,12 @@ Accompanying blog post: https://posts.specterops.io/introducing-venator-a-macos-
 Below are the Venator modules and the data each module contains. Once the script is complete, you will be provide a JSON file for futher analysis/ingestion into a SIEM solution. You can search for data by module in the following way within the JSON file:
 `module:<name of module>`
 
-`system_info`: 
+`system_info`:
 * hostname
 * kernel
 * kernel_release
 
-`launch_agents`: 
+`launch_agents`:
 * label
 * program
 * program_arguments
@@ -48,61 +48,61 @@ Below are the Venator modules and the data each module contains. Once the script
 * runAtLoad
 * hostname
 
-`users`: 
+`users`:
 * users
 * hostname
 
-`safari_extensions`: 
+`safari_extensions`:
 * extension name
 * apple_signed
 * developer_identifier
 * extension_path
 * hostname
 
-`chrome_extensions`: 
+`chrome_extensions`:
 * extension_directory_name
 * extension_update_url
 * extension_name
 * hostname
 
-`firefox_extensions`: 
+`firefox_extensions`:
 * extension_id
 * extension_update_url
 * extension_options_url
 * extension_install_date
 * extension_last_updated
-* extension_source_uri 
+* extension_source_uri
 * extension_name
 * extension_description
 * extension_creator
 * extension_homepage_url
 * hostname
 
-`install_history`: 
+`install_history`:
 * install_date
 * display_name
 * package_identifier
 * hostname
 
-`cron_jobs`: 
+`cron_jobs`:
 * user
 * crontab
 * hostname
 
-`emond_rules`: 
+`emond_rules`:
 * rule
 * path
 * hostname
 
-`environment_variables`: 
+`environment_variables`:
 * hostname
 * variable:value
 
-`periodic_scripts`: 
+`periodic_scripts`:
 * hostname
 * periodic_script:"content of script"
 
-`current_connections`: 
+`current_connections`:
 * process_name
 * process_id
 * user
@@ -110,29 +110,29 @@ Below are the Venator modules and the data each module contains. Once the script
 * connection_flow
 * hostname
 
-`sip_status`: 
+`sip_status`:
 * sip_status
 * hostname
 
-`gatekeeper_status`: 
+`gatekeeper_status`:
 * gatekeeper_status
 * hostname
 
-`login_items`: 
+`login_items`:
 * hostname
 * application
 * executable
 * application_hash
 * signature
 
-`applications`: 
+`applications`:
 * hostname
 * application
 * executable
 * application_hash
 * signature
 
-`event_taps`: 
+`event_taps`:
 * eventTapID
 * tapping_process_id
 * tapping_process_name
@@ -140,13 +140,23 @@ Below are the Venator modules and the data each module contains. Once the script
 * enabled
 * hostname
 
-`bash_history`: 
+`bash_history`:
 * user
 * bash_commands
 * hostname
 
-`shell_startup`: 
+`shell_startup`:
 * user
 * hostname
 * shell_startup_filename
 * shell_startup_data
+
+If the script is run with the '-v' flag, then the hash will be sent to VirusTotal for comparison with their database. This uses their Public API but still requires the use of an API key. You can obtain one from their site, and include it in the Venator command line (or script if appropriate):
+
+```text
+sudo VTKEY=<YOUR API KEY HERE> /usr/bin/python2.7 Venator.py -v
+```
+
+The calls to VirusTotal do add some running time. There's also the issue of throttling - the script tries to deal with it but it has been minimally tested.
+
+When ran with this option a new stanza will appear where appropriate: "virustotal_result", with possible values "This file is OK., "This file has no VirusTotal entry." or "POSITIVE VT SCAN - See link_to_virustotal_entry".
