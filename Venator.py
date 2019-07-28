@@ -20,6 +20,10 @@ import objc
 import platform
 import time
 import hashlib
+import sqlite3
+import tempfile
+import shutil
+import binascii
 
 #get the hostname of the system the script is running on
 hostname = socket.gethostname()
@@ -315,6 +319,49 @@ def getChromeExtensions(path,output_file):
                   extensions.update({"UUID":UUID})
                   json.dump(extensions,output_file)
                   outfile.write("\n")
+
+# get chrome downloads and visit history
+def getChromeDownloads(chromeHistoryDbPath,output_file):
+  print("%s" % "[+] Gathering Chrome Downloads history.")
+
+  # database is locked
+  _,historyCopyPath = tempfile.mkstemp()
+  shutil.copy(chromeHistoryDbPath, historyCopyPath)
+  try :
+    db = sqlite3.connect(historyCopyPath)
+    db.row_factory = sqlite3.Row
+    c = db.cursor()
+    results = c.execute("SELECT * FROM downloads ORDER BY start_time DESC").fetchall()
+    chrome_epoch_start = datetime.datetime(1601,1,1)
+    dangerTypeEnum = ("none", "file", "url", "content", "uncommon", "host", "unwanted", "safe", "accepted")
+    statusEnum = ("in_progress", "interrupted", "complete")
+    for row in results:
+      download = dict((k, row[k]) for k in ("total_bytes", "opened","referrer", "by_ext_id", 
+      "by_ext_name", "mime_type", "original_mime_type", "site_url", "tab_url", "tab_referrer_url"))
+      start_time = chrome_epoch_start + datetime.timedelta(microseconds=int(row['start_time']))
+      download.update({
+        "module": "chrome_downloads",
+        "hostname": hostname,
+        "UUID": UUID,
+        "start_time": start_time.isoformat() + 'Z',
+        "target_path": row["target_path"].encode("utf-8"),
+        "current_path": row["current_path"].encode("utf-8"),
+        "hash": binascii.hexlify(row["hash"]),
+        "danger_type": dangerTypeEnum[row["danger_type"]],
+        "state": statusEnum[row["state"]]
+      })
+      
+      json.dump(download,output_file)
+      output_file.write("\n")
+  except sqlite3.OperationalError:
+    print("[-] Unable to connect to the chrome history database")
+  except:
+    print("[-] Error parsing chrome history database")
+  finally:
+    os.remove(historyCopyPath)
+  
+
+
 
 #get all firefox extensions on the system
 def getFirefoxExtensions(path,output_file):
@@ -720,6 +767,7 @@ __     __               _
     for user in lst_of_users:
       userLaunchAgent = '/Users/'+user+'/Library/LaunchAgents'
       chromeEx = '/Users/'+user+'/Library/Application Support/Google/Chrome/Default/Extensions/'
+      chromeHistory = '/Users/'+user+'/Library/Application Support/Google/Chrome/Default/History'
       firefoxEx = '/Users/'+user+'/Library/Application Support/Firefox/'
       safariEx = '/Users/'+user+'/Library/Safari/Extensions'
       loginItemDir = '/Users/'+user+'/Library/Application Support/com.apple.backgroundtaskmanagementagent/backgrounditems.btm'
@@ -729,6 +777,8 @@ __     __               _
         getLaunchAgents(userLaunchAgent,outfile)
       if os.path.exists(chromeEx):
         getChromeExtensions(chromeEx,outfile)
+      if os.path.exists(chromeHistory):
+        getChromeDownloads(chromeHistory,outfile)
       if os.path.exists(firefoxEx):
         getFirefoxExtensions(firefoxEx,outfile)
       if os.path.exists(safariEx):
