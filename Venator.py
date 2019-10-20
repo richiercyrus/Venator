@@ -28,7 +28,9 @@ import random
 
 # send the hash to VirusTotal for checking
 vtResultRequested = False
-vtAPIKey = ""
+vtAPIKey = "0bcc16287ac61d7c6543813585a9fac49c54e7cc3d56e02a393811419b3428f0"
+attempts = 0
+maxAttempts = 5759
 
 #get the hostname of the system the script is running on
 hostname = socket.gethostname()
@@ -69,8 +71,11 @@ def getSystemInfo(output_file):
   outfile.write("\n")
 
 def getVTResult(fileHash):
-  attempts = 0
-  maxAttempts = 10
+  global attempts
+  global maxAttempts
+
+  if attempts % 4 == 0:
+    time.sleep(60)
 
   if vtResultRequested:
     while attempts < maxAttempts:
@@ -81,20 +86,14 @@ def getVTResult(fileHash):
       if r.status != 429:
         if r.status == 200:
           respBody = json.loads(r.read())
+          attempts = attempts + 1
           if respBody['response_code'] == 0:
-            return "This file is OK."
+            return "This file has no VirusTotal entry."
           else:
             if respBody['positives'] != 0:
               return "POSITIVE VT SCAN - see " + respBody['permalink']
             else:
               return "This file is OK."
-        elif r.status == 204:
-          # no findings for this hash
-          return "This file has no VirusTotal entry."
-        return "Funky result: " + str(r.status)
-      else:
-        attempts = attempts + 1
-        time.sleep(2 ** attempts + random.random())
 
     return "shouldnt get here"
 
@@ -762,7 +761,7 @@ __     __               _
     vtResultRequested = True
     vtAPIKey = os.getenv("VTKEY")
     if vtAPIKey is None:
-      print("You asked for results from VirusTotal but did not put an API key on VTKEY")
+      print("You asked for results from VirusTotal but did not put an API key in the variable VTKEY")
       sys.exit(-1)
 
 
