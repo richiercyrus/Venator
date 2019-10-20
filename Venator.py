@@ -28,7 +28,6 @@ import random
 
 # send the hash to VirusTotal for checking
 vtResultRequested = False
-vtAPIKey = "0bcc16287ac61d7c6543813585a9fac49c54e7cc3d56e02a393811419b3428f0"
 attempts = 0
 maxAttempts = 5759
 
