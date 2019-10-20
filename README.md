@@ -157,6 +157,6 @@ If the script is run with the '-v' flag, then the hash will be sent to VirusTota
 sudo VTKEY=<YOUR API KEY HERE> /usr/bin/python2.7 Venator.py -v
 ```
 
-The calls to VirusTotal do add some running time. There's also the issue of throttling - the script tries to deal with it but it has been minimally tested.
+The calls to VirusTotal do add some running time due to public API key throttling.
 
-When ran with this option a new stanza will appear where appropriate: "virustotal_result", with possible values "This file is OK., "This file has no VirusTotal entry." or "POSITIVE VT SCAN - See link_to_virustotal_entry".
+When ran with this option a new stanza will appear where appropriate: "virustotal_result", with possible values `This file is OK.`, `This file has no VirusTotal entry.` or `POSITIVE VT SCAN - See link_to_virustotal_entry`.
