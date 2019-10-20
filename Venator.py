@@ -20,22 +20,32 @@ import objc
 import platform
 import time
 import hashlib
+import httplib
+import urllib
+import time
+import random
+
+
+# send the hash to VirusTotal for checking
+vtResultRequested = False
+attempts = 0
+maxAttempts = 5759
 
 #get the hostname of the system the script is running on
 hostname = socket.gethostname()
 
 #get UUID - https://apple.stackexchange.com/questions/72355/how-to-get-uuid-with-python/72360#72360
 def getUUID():
-  from Foundation import NSBundle 
+  from Foundation import NSBundle
   IOKit_bundle = NSBundle.bundleWithIdentifier_('com.apple.framework.IOKit')
   functions = [("IOServiceGetMatchingService", b"II@"),
              ("IOServiceMatching", b"@*"),
              ("IORegistryEntryCreateCFProperty", b"@I@@I"),
-            ]          
+            ]
   objc.loadBundleFunctions(IOKit_bundle, globals(), functions)
   def io_key(keyname):
     return IORegistryEntryCreateCFProperty(IOServiceGetMatchingService(0, IOServiceMatching("IOPlatformExpertDevice".encode("utf-8"))), keyname, None, 0)
-  
+
   #return the system's unique identifier
   return str(io_key("IOPlatformUUID".encode("utf-8")))
 
@@ -59,8 +69,36 @@ def getSystemInfo(output_file):
   json.dump(system_data,output_file)
   outfile.write("\n")
 
+def getVTResult(fileHash):
+  global attempts
+  global maxAttempts
+
+  if attempts % 4 == 0:
+    time.sleep(60)
+
+  if vtResultRequested:
+    while attempts < maxAttempts:
+      req = "/vtapi/v2/file/report?apikey={}&resource={}".format(vtAPIKey, fileHash)
+      con = httplib.HTTPSConnection("www.virustotal.com")
+      con.request("GET", req)
+      r = con.getresponse()
+      if r.status != 429:
+        if r.status == 200:
+          respBody = json.loads(r.read())
+          attempts = attempts + 1
+          if respBody['response_code'] == 0:
+            return "This file has no VirusTotal entry."
+          else:
+            if respBody['positives'] != 0:
+              return "POSITIVE VT SCAN - see " + respBody['permalink']
+            else:
+              return "This file is OK."
+
+    return "shouldnt get here"
+
+
 # get the sha256 hash of any file
-def getHash(file):
+def getHash(file, ignoreVFlag = False):
     hasher = hashlib.sha256()
     if os.path.exists(file) and os.path.isfile(file):
         with open(file, 'rb') as afile:
@@ -69,10 +107,17 @@ def getHash(file):
             fileHash = hasher.hexdigest()
     else:
         fileHash = "File is a directory or doesn't exist"
-    return(fileHash)
+
+    # send hash to Virustotal if requested. Doing it here will help with the 4 queries/minute rate limit
+    if ignoreVFlag == True:
+      vt_res = "Ignored"
+    else:
+      vt_res = getVTResult(fileHash)
+
+    return(fileHash, vt_res)
 
 #Code used from https://github.com/synack/knockknock/blob/master/knockknock.py - Patrick Wardle! - to get the signing information for a given executable
-def checkSignature(file, bundle=None): 
+def checkSignature(file, bundle=None):
   SECURITY_FRAMEWORK = '/System/Library/Frameworks/Security.framework/Versions/Current/Security'
   kSecCSDefaultFlags = 0x0
   kSecCSDoNotValidateResources = 0x4
@@ -90,7 +135,7 @@ def checkSignature(file, bundle=None):
 
 	#return dictionary
   signingInfo = {}
-  sigCheckFlags = kSecCSStrictValidate_kSecCSCheckAllArchitectures_kSecCSCheckNestedCode 
+  sigCheckFlags = kSecCSStrictValidate_kSecCSCheckAllArchitectures_kSecCSCheckNestedCode
   securityFramework = ctypes.cdll.LoadLibrary(SECURITY_FRAMEWORK)
   objcRuntime = ctypes.cdll.LoadLibrary(ctypes.util.find_library('objc'))
   objcRuntime.objc_getClass.restype = ctypes.c_void_p
@@ -99,7 +144,7 @@ def checkSignature(file, bundle=None):
   signedStatus = None
   isApple = False
   authorities = []
-  
+
   file = Foundation.NSString.stringWithString_(file)
   file = file.stringByAddingPercentEscapesUsingEncoding_(Foundation.NSUTF8StringEncoding).encode('utf-8')
   path = Foundation.NSURL.URLWithString_(Foundation.NSString.stringWithUTF8String_(file))
@@ -186,37 +231,42 @@ def parseAgentsDaemons(item,path):
 
   progExecutableHash = ""
   progExecutable = ""
+  progVTResult = ""
   try:
     if plist.get("ProgramArguments"):
       progExecutable = plist.get("ProgramArguments")[0]
       if os.path.exists(progExecutable):
         try:
-          progExecutableHash = getHash(progExecutable)
+          progExecutableHash, progVTResult = getHash(progExecutable)
         except:
           progExecutableHash = "Error hashing "+progExecutable
+          progVTResult = "No VT result"
     elif plist.get("Program"):
       progExecutable = plist.get("Program")
-      progExecutableHash = getHash(progExecutable)
+      progExecutableHash, progVTResult = getHash(progExecutable)
       if progExecutable.startswith('REPLACE_HOME'):
         findHomeStart = plist_file.find("/Library")
         progExecutable = progExecutable.replace('REPLACE_HOME',plist_file[:findHomeStart])
-        progExecutableHash = getHash(progExecutable)
+        progExecutableHash, progVTResult = getHash(progExecutable)
   except:
     progExecutable = "Error parsing or no associated executable"
     progExecutableHash = "No executable to parse"
-  
+    progVTResult = "No VT result"
+
   if plist:
     if plist.get("RunAtLoad"):
       parsedPlist.update({'runAtLoad': str(plist.get("RunAtLoad"))})
-    
+
     parsedPlist.update({'label': str(plist.get("Label"))})
     parsedPlist.update({'program': str(plist.get("Program"))})
     parsedPlist.update({'program_arguments': (str(plist.get("ProgramArguments"))).strip("[").strip("]")})
     if os.path.exists(progExecutable):
-      parsedPlist.update({'hash':progExecutableHash}) 
+      parsedPlist.update({'hash':progExecutableHash})
+      if (vtResultRequested):
+        parsedPlist.update({'virustotal_result':progVTResult})
       parsedPlist.update({'executable':progExecutable})
       parsedPlist.update({"signing_info":checkSignature(progExecutable)})
-    parsedPlist.update({'plist_hash':getHash(plist_file)})
+    parsedPlist.update({'plist_hash':getHash(plist_file, True)})
     parsedPlist.update({'path':plist_file})
     return parsedPlist
 
@@ -233,7 +283,7 @@ def getLaunchAgents(path,output_file):
       parsedAgent.update({"UUID":UUID})
       json.dump(parsedAgent,output_file)
       outfile.write("\n")
-      
+
 def getLaunchDaemons(path,output_file):
     print("%s" % "[+] Gathering Launch Daemon data.")
     launchDaemons = os.listdir(path)
@@ -245,9 +295,9 @@ def getLaunchDaemons(path,output_file):
       parsedDaemon.update({"hostname":hostname})
       parsedDaemon.update({"UUID":UUID})
       json.dump(parsedDaemon,output_file)
-      outfile.write("\n") 
+      outfile.write("\n")
 
-#get a list of users on the system      
+#get a list of users on the system
 def getUsers(output_file):
     print("%s" % "[+] Gathering users on the system.")
     users_dict = {}
@@ -276,7 +326,7 @@ def getSafariExtensions(path,output_file):
   if plist:
     for ext in plist.get("Installed Extensions"):
       safariExtensions = {}
-      safariExtensions.update({"module":"safari_extensions"})  
+      safariExtensions.update({"module":"safari_extensions"})
       safariExtensions.update({'extension_name':ext.get("Archive File Name")})
       safariExtensions.update({'apple_signed':ext.get("Apple-signed")})
       safariExtensions.update({'developer_identifier':ext.get("Developer Identifier")})
@@ -324,7 +374,7 @@ def getFirefoxExtensions(path,output_file):
       profile_dump = profile_data.read()
   except:
     return
-   
+
   extensions_path = profile_dump[profile_dump.find("Path="):profile_dump.find("\\n")].split('\n')[0]
   extensions_path = extensions_path.split("=")[1]
 
@@ -341,12 +391,12 @@ def getFirefoxExtensions(path,output_file):
     firefox_extensions.update({"extension_last_updated": field.get("updateDate")})
     firefox_extensions.update({"extension_source_uri": field.get("sourceURI")})
     firefox_extensions.update({"extension_name": field.get("defaultLocale").get("name")})
-    firefox_extensions.update({"extension_description": field.get("defaultLocale").get("description")})    
+    firefox_extensions.update({"extension_description": field.get("defaultLocale").get("description")})
     firefox_extensions.update({"extension_creator": field.get("defaultLocale").get("creator")})
     firefox_extensions.update({"extension_homepage_url": field.get("defaultLocale").get("homepageURL")})
     firefox_extensions.update({"module":"firefox_extensions"})
     firefox_extensions.update({"hostname":hostname})
-    firefox_extensions.update({"UUID":UUID})      
+    firefox_extensions.update({"UUID":UUID})
     json.dump(firefox_extensions,output_file)
     outfile.write("\n")
 
@@ -365,7 +415,7 @@ def getInstallHistory(output_file):
     installList.update({"UUID":UUID})
     json.dump(installList,output_file,default=datetime_handler,encoding='latin1')
     output_file.write("\n")
-    
+
 
 def getCronJobs(users,output_file):
   #get all of the current users
@@ -411,7 +461,7 @@ def getKext(sipStatus,kextPath,output_file):
             kextPlist = plistlib.readPlist(os.path.join(root, name))
           except:
             kextDict.update({"Plist_parsing_error":"Unable to parse plist for "+kextPath})
-          
+
           if (kextPlist):
             executable = kextPlist.get("CFBundleExecutable")
             if (executable):
@@ -422,20 +472,23 @@ def getKext(sipStatus,kextPath,output_file):
 
             if os.path.exists(executable_path):
               kext_sig = checkSignature(executable_path,None)
-              kext_hash = getHash(executable_path)
+              kext_hash, kext_vtResult = getHash(executable_path)
             else:
               kext_sig = "Parsing Error"
               kext_hash = "Parsing Error"
-            
+
             kextDict.update({"CFBundleName":kextPlist.get("CFBundleName")})
             kextDict.update({"CFBundleExecutable":executable})
             kextDict.update({"CFBundleExecutable_signature":kext_sig})
             kextDict.update({"CFBundleExecutable_hash":kext_hash})
+            if vtResultRequested:
+              kextDict.update({"virustotal_result":kext_vtResult})
+
             kextDict.update({"CFBundleIdentifier":kextPlist.get("CFBundleIdentifier")})
             kextDict.update({"OSBundleRequired":kextPlist.get("OSBundleRequired")})
             kextDict.update({"CFBundleGetInfoString":kextPlist.get("CFBundleGetInfoString")})
 
-          kextDict.update({"kext_path":os.path.join(root, name)})  
+          kextDict.update({"kext_path":os.path.join(root, name)})
           kextDict.update({"module":"kernel_extensions"})
           kextDict.update({"hostname":hostname})
           kextDict.update({"UUID":UUID})
@@ -448,7 +501,7 @@ def getEnv(output_file):
   for var in envVars:
     env = {}
     envValue = var.split("=")
-    if len(envValue) > 1:
+    if len(envValue) > 1 and envValue[0] != "VTKEY":
       env.update({envValue[0]:envValue[1]})
       env.update({"module":"environment_variables"})
       env.update({"hostname":hostname})
@@ -511,7 +564,7 @@ def SIPStatus(output_file):
   json.dump(sip,output_file)
   outfile.write("\n")
   return sip
-  
+
 
 def GatekeeperStatus(output_file):
   print("%s" % "[+] Gathering Gatekeeper status.")
@@ -538,13 +591,13 @@ def parseApp(app):
     else:
       appInfo.update({"application":app})
       return appInfo
-      
+
     executable = plist.get("CFBundleExecutable")
     executable_path = app+"/Contents/MacOS/"+executable
-    
+
     if os.path.exists(executable_path):
       app_sig = checkSignature(executable_path,None)
-      app_hash = getHash(executable_path)
+      app_hash, app_ktResult = getHash(executable_path)
     else:
       app_sig = "Parsing Error"
       app_hash = "Parsing Error"
@@ -553,6 +606,8 @@ def parseApp(app):
     appInfo.update({"executable":executable})
     appInfo.update({"executable_path":executable_path})
     appInfo.update({"application_hash":app_hash})
+    if vtResultRequested:
+      appInfo.update({"virustotal_result": app_ktResult})
     appInfo.update({"signature":app_sig})
   return appInfo
 
@@ -588,6 +643,9 @@ def getLoginItems(path,output_file):
 
 def getApps(path,output_file):
   print("%s" % "[+] Gathering Applications for each user.")
+  if vtResultRequested:
+    print("%s" % "[++] Querying VirusTotal as we go.")
+
   app_lst = os.listdir(path)
   for app in app_lst:
     apps = {}
@@ -597,13 +655,13 @@ def getApps(path,output_file):
     except:
       apps.update({"app error":"issue parsing application information for app"+str(app)})
       continue
-  
+
     apps.update({"module":"applications"})
     apps.update({"hostname":hostname})
     apps.update({"UUID":UUID})
     json.dump(apps,output_file)
     outfile.write("\n")
-    
+
 
 
 def getEventTaps(output_file):
@@ -625,7 +683,7 @@ def getEventTaps(output_file):
     eventTap.update({"module":"event_taps"})
     json.dump(eventTap,output_file)
     outfile.write("\n")
-  
+
 def getBashHistory(output_file, users):
   print("%s" % "[+] Gathering Bash History data.")
   userBashHistory = {}
@@ -681,22 +739,32 @@ if __name__ == '__main__':
 
   outputFile = hostname
   outputDirectory = os.getcwd()
-  print("%s" % """ 
+  print("%s" % """
 __     __               _
 \ \   / /__ _ __   __ _| |_ ___  _ __
  \ \ / / _ \ '_ \ / _` | __/ _ \| '__|
   \ V /  __/ | | | (_| | || (_) | |
    \_/ \___|_| |_|\__,_|\__\___/|_|
           """)
-  
+
 
 
   parser = argparse.ArgumentParser(description='Helpful information for running your macOS Hunting Script.')
   parser.add_argument('-f',metavar='File Name',default=outputFile, help='Name of your output file (by default the name is the hostname of the system).')
   parser.add_argument('-d', metavar='Directory',default=outputDirectory, help='Directory of your output file (by default it is the current working directory).')
   parser.add_argument('-a', metavar='AWS Key', help='Your AWS Key if you want to upload to S3 bucket.')
+  parser.add_argument('-v',  action="store_true",dest="vtResultRequested", help='If present, hashes will be sent to VirusTotal for checking (severely slows down performance)')
   args = parser.parse_args()
-  
+
+  if args.vtResultRequested:
+    vtResultRequested = True
+    vtAPIKey = os.getenv("VTKEY")
+    if vtAPIKey is None:
+      print("You asked for results from VirusTotal but did not put an API key in the variable VTKEY")
+      sys.exit(-1)
+
+
+
   outputPath = args.d+"/"+args.f+".json"
 
   if not os.geteuid()==0:
@@ -708,7 +776,7 @@ __     __               _
     lst_of_users = getUsers(outfile).get("users")
     sipEnabled = SIPStatus(outfile).get("sip_status")
 
-  
+
     modules = [getSystemInfo(outfile),getInstallHistory(outfile),GatekeeperStatus(outfile),getConnections(outfile),
     getEnv(outfile),getPeriodicScripts(outfile), getCronJobs(lst_of_users,outfile),getEmond(outfile),getLaunchAgents('/Library/LaunchAgents',outfile),getShellStartupScripts(lst_of_users,outfile),
     getLaunchDaemons('/Library/LaunchDaemons',outfile),getKext(sipStatus,'/Library/Extensions',outfile),getApps('/Applications',outfile),getEventTaps(outfile),getBashHistory(outfile,lst_of_users)]
@@ -740,7 +808,7 @@ __     __               _
 
     if (sipEnabled != 'enabled'):
       sipStatus = False
-    
+
     #if SIP is disabled, check for items in /System directory
     if sipStatus == False:
       print("%s" % "[!!!!!] System Integrity Protection is disabled. Gathering additional data launch agent/daemon data.")
@@ -754,4 +822,3 @@ __     __               _
     script_end = time.time()
     total_time = script_end - script_start
     print("[***] Venator collection completed in %s seconds with %s records. Location of your output file:%s" %  (str(total_time),str(records_count),outputPath))
-  
