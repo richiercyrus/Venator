@@ -20,6 +20,14 @@ import objc
 import platform
 import time
 import hashlib
+import sqlite3
+import tempfile
+import shutil
+import binascii
+import urllib2
+import urllib
+import base64
+import hmac
 import httplib
 import urllib
 import time
@@ -365,6 +373,49 @@ def getChromeExtensions(path,output_file):
                   extensions.update({"UUID":UUID})
                   json.dump(extensions,output_file)
                   outfile.write("\n")
+
+# get chrome downloads and visit history
+def getChromeDownloads(chromeHistoryDbPath,output_file):
+  print("%s" % "[+] Gathering Chrome Downloads history.")
+
+  # database is locked
+  _,historyCopyPath = tempfile.mkstemp()
+  shutil.copy(chromeHistoryDbPath, historyCopyPath)
+  try :
+    db = sqlite3.connect(historyCopyPath)
+    db.row_factory = sqlite3.Row
+    c = db.cursor()
+    results = c.execute("SELECT * FROM downloads ORDER BY start_time DESC").fetchall()
+    chrome_epoch_start = datetime.datetime(1601,1,1)
+    dangerTypeEnum = ("none", "file", "url", "content", "uncommon", "host", "unwanted", "safe", "accepted")
+    statusEnum = ("in_progress", "interrupted", "complete")
+    for row in results:
+      download = dict((k, row[k]) for k in ("total_bytes", "opened","referrer", "by_ext_id", 
+      "by_ext_name", "mime_type", "original_mime_type", "site_url", "tab_url", "tab_referrer_url"))
+      start_time = chrome_epoch_start + datetime.timedelta(microseconds=int(row['start_time']))
+      download.update({
+        "module": "chrome_downloads",
+        "hostname": hostname,
+        "UUID": UUID,
+        "start_time": start_time.isoformat() + 'Z',
+        "target_path": row["target_path"].encode("utf-8"),
+        "current_path": row["current_path"].encode("utf-8"),
+        "hash": binascii.hexlify(row["hash"]),
+        "danger_type": dangerTypeEnum[row["danger_type"]],
+        "state": statusEnum[row["state"]]
+      })
+      
+      json.dump(download,output_file)
+      output_file.write("\n")
+  except sqlite3.OperationalError:
+    print("[-] Unable to connect to the chrome history database")
+  except:
+    print("[-] Error parsing chrome history database")
+  finally:
+    os.remove(historyCopyPath)
+  
+
+
 
 #get all firefox extensions on the system
 def getFirefoxExtensions(path,output_file):
@@ -731,6 +782,88 @@ def getShellStartupScripts(users, output_file):
         output_file.write("\n")
 
 
+#
+# AWS UPLOAD (without requests module)
+#
+
+AMZN_SIGNED_HEADERS = ['content-md5', 'content-type',
+                       'host', 'x-amz-content-sha256',
+                       'x-amz-date']
+AMZN_CONTENT_SHA256 = 'UNSIGNED-PAYLOAD'
+
+
+def hmac_sha256(key, data):
+    return hmac.new(key, data, hashlib.sha256).digest()
+
+
+def amzn_sig(secret_access_key, data, aws_region, aws_service='s3'):
+    today = datetime.datetime.utcnow().strftime('%Y%m%d')
+    date_key = hmac_sha256('AWS4' + secret_access_key, today)
+    date_region_key = hmac_sha256(date_key, aws_region)
+    date_region_svc_key = hmac_sha256(date_region_key, aws_service)
+    sign_key = hmac_sha256(date_region_svc_key, 'aws4_request')
+
+    return hmac.new(sign_key, data, hashlib.sha256).hexdigest()
+
+
+def amzn_canonical_req(filename_path, headers_list):
+    headers = dict([(k.lower(), v.strip()) for k, v in headers_list])
+    canonical_hdrs = []
+    for amzn_header in AMZN_SIGNED_HEADERS:
+        canonical_hdrs.append('{}:{}'.format(
+            amzn_header, headers[amzn_header]))
+    return 'PUT\n{}\n\n{}\n\n{}\n{}'.format(filename_path,
+                                            '\n'.join(canonical_hdrs),
+                                            ';'.join(AMZN_SIGNED_HEADERS),
+                                            AMZN_CONTENT_SHA256)
+
+
+def s3_upload(data, content_type, filename_path, access_key_id, secret_access_key, s3_bucket, aws_region='us-west-1'):
+    s3_host = '{}.s3.{}.amazonaws.com'.format(s3_bucket, aws_region)
+    if not filename_path.startswith('/'):
+        filename_path = '/' + filename_path
+    s3_upload_url = 'https://{}{}'.format(s3_host, filename_path)
+
+    put_req = urllib2.Request(s3_upload_url, data=data)
+    put_req.get_method = lambda: 'PUT'
+
+    now = datetime.datetime.utcnow()
+    amzn_ts = now.strftime('%Y%m%dT%H%M%SZ')
+    amzn_date = now.strftime('%Y%m%d')
+
+    data_md5 = base64.b64encode(hashlib.md5(data).digest())
+    put_req.add_header('Host', s3_host)
+    put_req.add_header('Content-MD5', data_md5)
+    put_req.add_header('X-Amz-Date', amzn_ts)
+    put_req.add_header('Content-Type', content_type)  # 'application/zip')
+    put_req.add_header('X-Amz-Content-SHA256', AMZN_CONTENT_SHA256)
+
+    # canonical request to build signature
+    canonical_req = amzn_canonical_req(filename_path, put_req.header_items())
+    scope = '{}/{}/s3/aws4_request'.format(amzn_date, aws_region)
+    hash_canonical_req = hashlib.sha256(canonical_req).hexdigest()
+    to_sign = 'AWS4-HMAC-SHA256\n{}\n{}\n{}'.format(
+        amzn_ts,
+        scope,
+        hash_canonical_req)
+    req_sig = amzn_sig(secret_access_key, to_sign, aws_region)
+
+    # build Authorization header
+    signed_headers = ';'.join(AMZN_SIGNED_HEADERS)
+    creds = '{}/{}'.format(access_key_id, scope)
+    auth_header = 'AWS4-HMAC-SHA256 Credential={}, SignedHeaders={}, Signature={}'.format(
+        creds, signed_headers, req_sig)
+    put_req.add_header('Authorization', auth_header)
+
+    # upload file or die
+    opener = urllib2.build_opener(urllib2.HTTPHandler())
+    try:
+        conn = opener.open(put_req)
+    except urllib2.HTTPError as e:
+        return False
+
+    return conn.code == 200
+
 if __name__ == '__main__':
   script_start = time.time()
   output_list = []
@@ -752,6 +885,11 @@ __     __               _
   parser = argparse.ArgumentParser(description='Helpful information for running your macOS Hunting Script.')
   parser.add_argument('-f',metavar='File Name',default=outputFile, help='Name of your output file (by default the name is the hostname of the system).')
   parser.add_argument('-d', metavar='Directory',default=outputDirectory, help='Directory of your output file (by default it is the current working directory).')
+  parser.add_argument('-a', metavar='<BUCKET_NAME:><AWS_KEY_ID>:<AWS_KEY_SECRET>', help='Your AWS Key if you want to upload to S3 bucket.')
+  args = parser.parse_args()
+  
+  outputFilename = args.f + '.json'
+  outputPath = os.path.join(args.d, outputFilename)
   parser.add_argument('-a', metavar='AWS Key', help='Your AWS Key if you want to upload to S3 bucket.')
   parser.add_argument('-v',  action="store_true",dest="vtResultRequested", help='If present, hashes will be sent to VirusTotal for checking (severely slows down performance)')
   args = parser.parse_args()
@@ -770,7 +908,6 @@ __     __               _
   if not os.geteuid()==0:
     sys.exit('This script must be run as root!')
 
-
   with open(outputPath, 'w') as outfile:
 
     lst_of_users = getUsers(outfile).get("users")
@@ -788,6 +925,7 @@ __     __               _
     for user in lst_of_users:
       userLaunchAgent = '/Users/'+user+'/Library/LaunchAgents'
       chromeEx = '/Users/'+user+'/Library/Application Support/Google/Chrome/Default/Extensions/'
+      chromeHistory = '/Users/'+user+'/Library/Application Support/Google/Chrome/Default/History'
       firefoxEx = '/Users/'+user+'/Library/Application Support/Firefox/'
       safariEx = '/Users/'+user+'/Library/Safari/Extensions'
       loginItemDir = '/Users/'+user+'/Library/Application Support/com.apple.backgroundtaskmanagementagent/backgrounditems.btm'
@@ -797,6 +935,8 @@ __     __               _
         getLaunchAgents(userLaunchAgent,outfile)
       if os.path.exists(chromeEx):
         getChromeExtensions(chromeEx,outfile)
+      if os.path.exists(chromeHistory):
+        getChromeDownloads(chromeHistory,outfile)
       if os.path.exists(firefoxEx):
         getFirefoxExtensions(firefoxEx,outfile)
       if os.path.exists(safariEx):
@@ -816,9 +956,21 @@ __     __               _
       output_list.append(getLaunchDaemons('/System/Library/LaunchDaemons',outfile))
       output_list.append(getKext(sipStatus,'/System/Library/Extensions',outfile))
 
-    records_count = len(open(outputPath).readlines(  ))
-
+    if args.a:
+      bucket_name, aws_key, aws_secret = args.a.split(':')
+      with open(outputPath, 'r') as oh:
+        s3_upload(oh.read(), 'application/json', '/uploads/' + outputFilename,
+              aws_key, aws_secret, bucket_name)
+        print("[+] results uploaded to S3 (%s)" % outputFilename)
+      
+      try:
+        os.remove(outputPath)
+      except:
+        pass
 
     script_end = time.time()
     total_time = script_end - script_start
+
+    print("[***] Venator collection completed in %s seconds. Location of your output file:%s" %  (str(total_time),outputPath))
     print("[***] Venator collection completed in %s seconds with %s records. Location of your output file:%s" %  (str(total_time),str(records_count),outputPath))
+
