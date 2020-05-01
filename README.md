@@ -65,7 +65,25 @@ Below are the Venator modules and the data each module contains. Once the script
 * extension_name
 * hostname
 
-`firefox_extensions`:
+`chrome_downloads`:
+* hash
+* opened
+* start_time
+* current_path
+* target_path
+* state
+* tab_url
+* tab_referrer_url
+* site_url
+* referrer
+* mime_type
+* original_mime_type
+* total_bytes
+* danger_type
+* by_ext_id
+* by_ext_name
+
+`firefox_extensions`: 
 * extension_id
 * extension_update_url
 * extension_options_url
