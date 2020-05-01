@@ -9,7 +9,8 @@ Accompanying blog post: https://posts.specterops.io/introducing-venator-a-macos-
 ***You may need to specify `/usr/bin/python` at command line instead of "python." if you have alternative versions of python installed.**
 
 ![](https://github.com/richiercyrus/Venator/blob/master/images/Screen%20Shot%202019-04-26%20at%203.51.35%20PM.png)
-***Of note, S3 funtionality will be part of a upcoming release.**
+
+S3 upload functionality is live: `python Venator.py -a <BUCKET_NAME>:<AWS_KEY_ID>:<AWS_KEY_SECRET>:<AWS_REGION>`
 
 **The script needs root permissions to run, or else you will get the error message below.**
 ![](https://github.com/richiercyrus/Venator/blob/development/images/Screen%20Shot%202019-03-30%20at%201.59.31%20PM.png)
