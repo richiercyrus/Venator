@@ -32,6 +32,7 @@ import httplib
 import urllib
 import time
 import random
+import threading
 
 
 # send the hash to VirusTotal for checking
@@ -106,7 +107,7 @@ def getVTResult(fileHash):
 
 
 # get the sha256 hash of any file
-def getHash(file, ignoreVFlag = False):
+def getHash(file, ignoreVFlag):
     hasher = hashlib.sha256()
     if os.path.exists(file) and os.path.isfile(file):
         with open(file, 'rb') as afile:
@@ -278,7 +279,7 @@ def parseAgentsDaemons(item,path):
     parsedPlist.update({'path':plist_file})
     return parsedPlist
 
-def getLaunchAgents(path,output_file):
+def getLaunchAgents(path,output_file,ignoreVFlag):
     #get all of the launch agents at a specififc location returned into a list
     print("%s" % "[+] Gathering Launch Agent data.")
     launchAgents = os.listdir(path)
@@ -292,7 +293,7 @@ def getLaunchAgents(path,output_file):
       json.dump(parsedAgent,output_file)
       outfile.write("\n")
 
-def getLaunchDaemons(path,output_file):
+def getLaunchDaemons(path,output_file,ignoreVFlag):
     print("%s" % "[+] Gathering Launch Daemon data.")
     launchDaemons = os.listdir(path)
     #for each of the launchAgents, parse the contents into a dictionary, add the name of the plist and the location to the dictionary
@@ -500,7 +501,7 @@ def getEmond(output_file):
     json.dump(allRules,output_file)
     output_file.write("\n")
 
-def getKext(sipStatus,kextPath,output_file):
+def getKext(sipStatus,kextPath,output_file,ignoreVFlag):
   print("%s" % "[+] Gathering Kernel Extensions data.")
   kexts = os.listdir(kextPath)
   for kext in kexts:
@@ -523,7 +524,7 @@ def getKext(sipStatus,kextPath,output_file):
 
             if os.path.exists(executable_path):
               kext_sig = checkSignature(executable_path,None)
-              kext_hash, kext_vtResult = getHash(executable_path)
+              kext_hash, kext_vtResult = getHash(executable_path,ignoreVFlag)
             else:
               kext_sig = "Parsing Error"
               kext_hash = "Parsing Error"
@@ -628,7 +629,7 @@ def GatekeeperStatus(output_file):
   json.dump(gatekeeper,output_file)
   outfile.write("\n")
 
-def parseApp(app):
+def parseApp(app,ignoreVFlag):
   appInfo = {}
   appPlist = app+"/Contents/Info.plist"
   if os.path.exists(appPlist):
@@ -648,7 +649,7 @@ def parseApp(app):
 
     if os.path.exists(executable_path):
       app_sig = checkSignature(executable_path,None)
-      app_hash, app_ktResult = getHash(executable_path)
+      app_hash, app_ktResult = getHash(executable_path,ignoreVFlag)
     else:
       app_sig = "Parsing Error"
       app_hash = "Parsing Error"
@@ -662,7 +663,7 @@ def parseApp(app):
     appInfo.update({"signature":app_sig})
   return appInfo
 
-def getLoginItems(path,output_file):
+def getLoginItems(path,output_file,ignoreVFlag):
   print("%s" % "[+] Gathering Login Items for each user.")
   #Parsing - Library/Application\ Support/com.apple.backgroundtaskmanagementagent/backgrounditems.btm
   plist_file = path
@@ -685,14 +686,14 @@ def getLoginItems(path,output_file):
     loginItems = {}
     #if there are apps in Login Items, parse them.
     if item:
-      loginItems = parseApp(item)
+      loginItems = parseApp(item,ignoreVT)
       loginItems.update({"module":"login_items"})
       loginItems.update({"hostname":hostname})
       loginItems.update({"UUID":UUID})
       json.dump(loginItems,output_file)
       outfile.write("\n")
 
-def getApps(path,output_file):
+def getApps(path,output_file,ignoreVFlag):
   print("%s" % "[+] Gathering Applications for each user.")
   if vtResultRequested:
     print("%s" % "[++] Querying VirusTotal as we go.")
@@ -702,7 +703,7 @@ def getApps(path,output_file):
     apps = {}
     app = path+"/"+app
     try:
-      apps = parseApp(app)
+      apps = parseApp(app,ignoreVT)
     except:
       apps.update({"app error":"issue parsing application information for app"+str(app)})
       continue
@@ -818,7 +819,7 @@ def amzn_canonical_req(filename_path, headers_list):
                                             AMZN_CONTENT_SHA256)
 
 
-def s3_upload(data, content_type, filename_path, access_key_id, secret_access_key, s3_bucket, aws_region='us-west-1'):
+def s3_upload(data, content_type, filename_path, access_key_id, secret_access_key, s3_bucket, aws_region):
     s3_host = '{}.s3.{}.amazonaws.com'.format(s3_bucket, aws_region)
     if not filename_path.startswith('/'):
         filename_path = '/' + filename_path
@@ -885,21 +886,22 @@ __     __               _
   parser = argparse.ArgumentParser(description='Helpful information for running your macOS Hunting Script.')
   parser.add_argument('-f',metavar='File Name',default=outputFile, help='Name of your output file (by default the name is the hostname of the system).')
   parser.add_argument('-d', metavar='Directory',default=outputDirectory, help='Directory of your output file (by default it is the current working directory).')
-  parser.add_argument('-a', metavar='<BUCKET_NAME:><AWS_KEY_ID>:<AWS_KEY_SECRET>', help='Your AWS Key if you want to upload to S3 bucket.')
+  parser.add_argument('-a', metavar='<BUCKET_NAME>:<AWS_KEY_ID>:<AWS_KEY_SECRET>:<AWS_REGION>', help='Your AWS Key if you want to upload to S3 bucket.')
+  parser.add_argument('-v',  action="store_true",dest="vtResultRequested", help='If present, hashes will be sent to VirusTotal for checking (severely slows down performance)')
   args = parser.parse_args()
   
   outputFilename = args.f + '.json'
   outputPath = os.path.join(args.d, outputFilename)
-  parser.add_argument('-a', metavar='AWS Key', help='Your AWS Key if you want to upload to S3 bucket.')
-  parser.add_argument('-v',  action="store_true",dest="vtResultRequested", help='If present, hashes will be sent to VirusTotal for checking (severely slows down performance)')
-  args = parser.parse_args()
 
   if args.vtResultRequested:
     vtResultRequested = True
+    ignoreVT = False
     vtAPIKey = os.getenv("VTKEY")
     if vtAPIKey is None:
       print("You asked for results from VirusTotal but did not put an API key in the variable VTKEY")
       sys.exit(-1)
+  else:
+    ignoreVT = True
 
 
 
@@ -915,8 +917,8 @@ __     __               _
 
 
     modules = [getSystemInfo(outfile),getInstallHistory(outfile),GatekeeperStatus(outfile),getConnections(outfile),
-    getEnv(outfile),getPeriodicScripts(outfile), getCronJobs(lst_of_users,outfile),getEmond(outfile),getLaunchAgents('/Library/LaunchAgents',outfile),getShellStartupScripts(lst_of_users,outfile),
-    getLaunchDaemons('/Library/LaunchDaemons',outfile),getKext(sipStatus,'/Library/Extensions',outfile),getApps('/Applications',outfile),getEventTaps(outfile),getBashHistory(outfile,lst_of_users)]
+    getEnv(outfile),getPeriodicScripts(outfile), getCronJobs(lst_of_users,outfile),getEmond(outfile),getLaunchAgents('/Library/LaunchAgents',outfile,ignoreVT),getShellStartupScripts(lst_of_users,outfile),
+    getLaunchDaemons('/Library/LaunchDaemons',outfile,ignoreVT),getKext(sipStatus,'/Library/Extensions',outfile,ignoreVT),getApps('/Applications',outfile,ignoreVT),getEventTaps(outfile),getBashHistory(outfile,lst_of_users)]
 
     for module in modules:
       module
@@ -932,7 +934,7 @@ __     __               _
       apps_dir = '/Users/'+user+'/Applications'
 
       if os.path.exists(userLaunchAgent):
-        getLaunchAgents(userLaunchAgent,outfile)
+        getLaunchAgents(userLaunchAgent,outfile,ignoreVT)
       if os.path.exists(chromeEx):
         getChromeExtensions(chromeEx,outfile)
       if os.path.exists(chromeHistory):
@@ -942,9 +944,9 @@ __     __               _
       if os.path.exists(safariEx):
         getSafariExtensions(safariEx,outfile)
       if os.path.exists(loginItemDir):
-        getLoginItems(loginItemDir,outfile)
+        getLoginItems(loginItemDir,outfile,ignoreVT)
       if os.path.exists(apps_dir):
-        getApps(apps_dir,outfile)
+        getApps(apps_dir,outfile,ignoreVT)
 
     if (sipEnabled != 'enabled'):
       sipStatus = False
@@ -953,20 +955,27 @@ __     __               _
     if sipStatus == False:
       print("%s" % "[!!!!!] System Integrity Protection is disabled. Gathering additional data launch agent/daemon data.")
       output_list.append(getLaunchAgents('/System/Library/LaunchAgents',outfile))
-      output_list.append(getLaunchDaemons('/System/Library/LaunchDaemons',outfile))
-      output_list.append(getKext(sipStatus,'/System/Library/Extensions',outfile))
+      output_list.append(getLaunchDaemons('/System/Library/LaunchDaemons',outfile,ignoreVT))
+      output_list.append(getKext(sipStatus,'/System/Library/Extensions',outfile,ignoreVT))
+
+    #time.sleep(60)
+    records_count = len(open(outputPath).readlines(  ))
 
     if args.a:
-      bucket_name, aws_key, aws_secret = args.a.split(':')
+      bucket_name, aws_key, aws_secret, aws_region = args.a.split(':')
       with open(outputPath, 'r') as oh:
-        s3_upload(oh.read(), 'application/json', '/uploads/' + outputFilename,
-              aws_key, aws_secret, bucket_name)
-        print("[+] results uploaded to S3 (%s)" % outputFilename)
+        didUpload = s3_upload(oh.read(), 'application/json', '/uploads/' + outputFilename,
+              aws_key, aws_secret, bucket_name, aws_region)
+        if didUpload == True:
+          print("[+] results uploaded to S3 (%s)" % outputFilename)
+          try:
+            os.remove(outputPath)
+          except:
+            pass
+        else:
+          print("[+] results were not uploaded to S3 (%s)" % outputFilename)
       
-      try:
-        os.remove(outputPath)
-      except:
-        pass
+      
 
     script_end = time.time()
     total_time = script_end - script_start
