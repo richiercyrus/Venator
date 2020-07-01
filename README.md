@@ -1,3 +1,6 @@
+**Venator is no longer supported/maintained, please consider using [Venator-Swift](https://github.com/richiercyrus/Venator-Swift) instead.**
+
+
 <p align="center">
 <img src="https://github.com/richiercyrus/Venator/blob/master/images/venator4%20copy.png">
 </p>
